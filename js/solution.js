@@ -7,15 +7,10 @@ class DragMenu {
 		this.shiftX = 0;
 		this.shiftY = 0;
 
-let menuBar = document.querySelector('.menu');
-
-document.addEventListener('mousedown', (event) => {
-	event.preventDefault();
-	if (event.target.classList.contains('drag')) {					
-		const bounds = event.target.getBoundingClientRect();
-		shiftX = event.pageX - bounds.left - window.pageXOffset;
-		shiftY = event.pageY - bounds.top - window.pageYOffset;		
-		movedMenu = event.target.parentElement;		
+		document.addEventListener('mousedown', this.dragOn.bind(this));
+		document.addEventListener('mousemove', this.dragMove.bind(this));
+		document.addEventListener('mouseup', this.dragOff.bind(this));
+		document.addEventListener('DOMContendLoaded', this.checkStorage());
 	}
 
 	dragOn(event) {
