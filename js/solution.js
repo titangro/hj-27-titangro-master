@@ -78,44 +78,81 @@ class SwitchMenu {
 	constructor() {
 		this.menu = document.querySelector('.menu');
 		this.burger = this.menu.querySelector('.burger');
-
-		document.addEventListener('DOMContendLoaded', this.restartMenu());
-		this.burger.addEventListener('click', this.showMenu.bind(this))
+		this.currentImage = document.querySelector('.current-image');
+		this.container = document.querySelector('.wrap.app');
 		
+		this.restartMenu();
+		this.initEvents();		
+	}
+
+	initEvents() {
+		this.burger.addEventListener('click', this.showMenu.bind(this));
+
 		Array
 		  .from(this.menu.querySelectorAll('.mode'))
 		  .forEach((node) => {
 		  	node.addEventListener('click', this.toggleMenu.bind(this));
 		  });
+
+		this.container.addEventListener('drop', this.uploadImage);
+		this.container.addEventListener('dragover', event => {event.preventDefault()});
 	}
 
 	toggleMenu(event) {
 		let switcher = ['new', 'comments', 'draw', 'share'];
-		switcher.forEach(cls => {
-			if (event.currentTarget.classList.contains(cls) 
-				&& !event.currentTarget.classList.contains('active')) {
-				Array
-				  .from(this.menu.querySelectorAll('.mode'))
-				  .forEach((node) => {
-				  	node.style.display = 'none';
-				  });
-				
-				this.menu.getElementsByClassName(cls)[0].style.display = 'inline-block';
-				if (this.menu.querySelector('.' + cls + '-tools')) {
-					this.menu.querySelector('.' + cls + '-tools').style.display = 'inline-block';
+		let currentClassList = event.currentTarget.classList;
+		
+		if (currentClassList.contains('new') && currentClassList.contains('active')) {
+			let inputFile = document.createElement('input');
+			inputFile.setAttribute('type', 'file');
+			inputFile.setAttribute('accept', 'image/jpeg, image/png');
+			inputFile.addEventListener('input', this.uploadImage);
+			inputFile.click();
+		} else {
+
+			switcher.forEach(cls => {
+				if (currentClassList.contains(cls) 
+					&& !currentClassList.contains('active')) {
+					Array
+					  .from(this.menu.querySelectorAll('.mode'))
+					  .forEach((node) => {
+					  	node.style.display = 'none';
+					  });
+					
+					this.menu.getElementsByClassName(cls)[0].style.display = 'inline-block';
+					if (this.menu.querySelector('.' + cls + '-tools')) {
+						this.menu.querySelector('.' + cls + '-tools').style.display = 'inline-block';
+					}
+					
+					this.menu.getElementsByClassName(cls)[0].classList.add('active');
+
+					if (!currentClassList.contains('new')) {
+						this.burger.style.display = 'inline-block';
+					}
 				}
-				this.menu.getElementsByClassName(cls)[0].classList.add('active');
-				this.burger.style.display = 'inline-block';
-			}
-		});
+			});
+		}
 	}
 
-	restartMenu () {
+	restartMenu() {
 		//стартовое меню для тестов
-		this.burger.style.display = 'none';
+		//this.burger.style.display = 'none';
+
+		//для дальнейшей работы
+		Array
+			.from(this.menu.querySelectorAll('.mode, .burger'))
+			.forEach((node) => {
+				if (!node.classList.contains('new')) {
+					node.style.display = 'none';
+				} else {
+					node.classList.add('active');
+				}
+			});
+
+		this.setImage('');
 	}
 
-	showMenu() {
+	showMenu() {		
 		this.burger.style.display = 'none';
 
 		Array
@@ -130,6 +167,33 @@ class SwitchMenu {
 			.forEach((node) => {
 				node.style.display = 'none';
 			});
+	}
+
+	getImage() {
+		return this.currentImage.getAttribute('src');
+	}
+
+	setImage(attr) {
+		this.currentImage.setAttribute('src', attr);
+	}
+
+	uploadImage(event) {
+		event.preventDefault();
+		const image = Array.from(event.target.files)[0];
+		const currentImage = document.querySelector('.current-image');
+		currentImage.src = URL.createObjectURL(image);
+		currentImage.addEventListener('load', (event) => {
+			URL.revokeObjectURL(event.target.src);
+		});
+
+		/*console.log(this.getImage())
+		if (this.getImage()) {
+			console.log(this.getImage())
+			this.showMenu();
+			currentClassList.remove('active');			
+		} else {
+			console.log('ошибка при загрузке фото');
+		}*/
 	}
 }
 
