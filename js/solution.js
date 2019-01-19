@@ -6,11 +6,16 @@ class DragMenu {
 		this.movedMenu = null;
 		this.shiftX = 0;
 		this.shiftY = 0;
+		this.menu = document.querySelector('.menu');
 
+		this.initEvents();		
+	}
+
+	initEvents() {
 		document.addEventListener('mousedown', this.dragOn.bind(this));
 		document.addEventListener('mousemove', this.dragMove.bind(this));
 		document.addEventListener('mouseup', this.dragOff.bind(this));
-		document.addEventListener('DOMContendLoaded', this.checkStorage());
+		document.addEventListener('DOMContendLoaded', this.checkPosition());
 	}
 
 	dragOn(event) {
@@ -42,7 +47,7 @@ class DragMenu {
 
 			this.movedMenu.style.setProperty('--menu-left', x + 'px');
 			this.movedMenu.style.setProperty('--menu-top', y + 'px');
-			this.setLocalstorage(x, y);	
+			this.setPosition(x, y);	
 		}
 	}
 
@@ -60,16 +65,16 @@ class DragMenu {
 		}	
 	}
 
-	setLocalstorage(x, y) {
-		localStorage.posX = x;
-		localStorage.posY = y;		
+	//сохранение позиции меню
+	setPosition(x, y) {
+		localStorage.position = JSON.stringify({x, y});
 	}
 
-	checkStorage() {
-		let menu = document.querySelector('.menu');
-		if (localStorage.posX && localStorage.posY) {
-			menu.style.setProperty('--menu-left', localStorage.posX + 'px');
-			menu.style.setProperty('--menu-top', localStorage.posY + 'px');			
+	checkPosition() {
+		let position = JSON.parse(localStorage.position);
+		if (position) {
+			this.menu.style.setProperty('--menu-left', position.x + 'px');
+			this.menu.style.setProperty('--menu-top', position.y + 'px');			
 		}
 	}
 }
@@ -81,14 +86,13 @@ class SwitchMenu {
 		this.currentImage = document.querySelector('.current-image');
 		this.container = document.querySelector('.wrap.app');
 		this.error = document.querySelector('.error');
-		this.loader = document.querySelector('.image-loader');
+		this.loader = document.querySelector('.image-loader');		
 		
-		this.restartMenu();
 		this.initEvents();		
 	}
 
 	initEvents() {
-		this.burger.addEventListener('click', this.showMenu.bind(this));
+		this.burger.addEventListener('click', this.reviewing.bind(this));
 
 		Array
 		  .from(this.menu.querySelectorAll('.mode'))
@@ -98,13 +102,18 @@ class SwitchMenu {
 
 		this.container.addEventListener('drop', this.uploadImage.bind(this));
 		this.container.addEventListener('dragover', event => {event.preventDefault()});
+		document.addEventListener('DOMContendLoaded', this.checkReviewing());
 	}
 
 	toggleMenu(event) {
+
+		//console.log('переключение');
+
 		let switcher = ['new', 'comments', 'draw', 'share'];
 		let currentClassList = event.currentTarget.classList;
 		
 		if (currentClassList.contains('new') && currentClassList.contains('active')) {
+			//загрузка фото по клику "Загрузить новое"
 			let inputFile = document.createElement('input');
 			inputFile.setAttribute('type', 'file');			
 			inputFile.addEventListener('input', this.uploadImage.bind(this));
@@ -114,6 +123,13 @@ class SwitchMenu {
 			switcher.forEach(cls => {
 				if (currentClassList.contains(cls) 
 					&& !currentClassList.contains('active')) {
+
+					//включаем публикацию
+					if (cls === 'new') {
+						return this.publication();
+					}
+					
+					//убираем другие пункты отличные от выбранного
 					Array
 					  .from(this.menu.querySelectorAll('.mode'))
 					  .forEach((node) => {
@@ -135,11 +151,15 @@ class SwitchMenu {
 		}
 	}
 
-	restartMenu() {
+	publication() {
 		//стартовое меню для тестов
 		//this.burger.style.display = 'none';
 
-		//для дальнейшей работы
+		//console.log('публикация')
+
+		//убираем вывод ошибок
+		this.error.style.display = 'none';
+		//вывод меню публикации (загрузить фото)
 		Array
 			.from(this.menu.querySelectorAll('.mode, .burger'))
 			.forEach((node) => {
@@ -149,12 +169,16 @@ class SwitchMenu {
 					node.classList.add('active');
 				}
 			});
-
-		this.setImage('');
+		
+		this.currentImage.setAttribute('src', '');
+		localStorage.reviewing = '';
 	}
 
-	showMenu() {		
-		this.burger.style.display = 'none';
+	reviewing() {
+
+		//console.log('рецензирование');
+
+		this.burger.style.display = 'none';		
 
 		Array
 			.from(this.menu.querySelectorAll('.mode'))
@@ -170,48 +194,77 @@ class SwitchMenu {
 			});
 	}
 
-	getImage() {
-		return this.currentImage.getAttribute('src');
-	}
-
-	setImage(attr) {
-		this.currentImage.setAttribute('src', attr);
-	}
-
 	uploadImage(event) {
-		event.preventDefault();
+		event.preventDefault();		
 		let image;
+		const error = this.error.querySelector('.error__message');
 		let accept = ['image/png', 'image/jpeg'];
+		//проверяем откуда пришел файл
 		if (event.type == 'input') {
-			image = Array.from(event.target.files)[0];			
+			image = Array.from(event.target.files)[0];		
 		} else if (event.type == 'drop') {
 			image = event.dataTransfer.files[0];
+
+			if (!this.menu.querySelector('.new.active')) {
+				//вывод ошибки при вбросе фото в режиме рецензирования
+				error.textContent = 'Чтобы загрузить новое изображение, пожалуйста, воспользуйтесь пунктом «Загрузить новое» в меню';				
+				this.error.style.display = 'block';
+				return;
+			}
 		}
-		console.log(image.type);
-		console.log(accept.includes(image.type));
+		//проверяем тип файла
 		if (accept.includes(image.type)) {
 			this.error.style.display = 'none';
+			console.log(image);
 			this.currentImage.src = URL.createObjectURL(image);
+
+			this.setReviewing(this.currentImage.src);
+			this.reviewing();
+
 			this.currentImage.addEventListener('load', (event) => {
 				URL.revokeObjectURL(event.target.src);
-			});
+			});						
 		} else {
-			//эту строку в дальнейшем убрать!!!
-			this.currentImage.src = '';
-
+			//вывод ошибоки при неверном типе файла		
+			error = 'Чтобы загрузить новое изображение, пожалуйста, воспользуйтесь пунктом «Загрузить новое» в меню';
 			this.error.style.display = 'block';
 		}
 
 		//необходимо загруженное изображение отправить на сервер
+		//при загрузке вывести прелоадер		
+	}
 
-		/*console.log(this.getImage())
-		if (this.getImage()) {
-			console.log(this.getImage())
-			this.showMenu();
-			currentClassList.remove('active');			
+	//сохранение фото для рецензирования
+	setReviewing(src) {
+		//получение ссылки на изображение в формате base64
+		fetch(src)
+		  .then(response => response.blob())
+		  .then(blob => new Promise((resolve, reject) => {
+		    const reader = new FileReader()
+		    reader.addEventListener('loadend', () => resolve(reader.result));
+		    reader.addEventListener('error', reject);
+		    reader.readAsDataURL(blob)
+		  }))
+		  .then(dataUrl => {
+		    localStorage.reviewing = dataUrl;
+		  })		  	
+	}
+
+	checkReviewing() {
+		//console.log(localStorage.reviewing);
+
+		//включение сохраненного режима
+		if (!localStorage.reviewing) {
+			return this.publication();
 		} else {
-			console.log('ошибка при загрузке фото');
-		}*/
+			this.reviewing();
+		}
+
+		//вывод сохраненного изображения
+		let reviewing = localStorage.reviewing;
+		if (reviewing) {
+			this.currentImage.src = reviewing;
+		}
 	}
 }
 
