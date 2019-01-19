@@ -80,6 +80,8 @@ class SwitchMenu {
 		this.burger = this.menu.querySelector('.burger');
 		this.currentImage = document.querySelector('.current-image');
 		this.container = document.querySelector('.wrap.app');
+		this.error = document.querySelector('.error');
+		this.loader = document.querySelector('.image-loader');
 		
 		this.restartMenu();
 		this.initEvents();		
@@ -94,7 +96,7 @@ class SwitchMenu {
 		  	node.addEventListener('click', this.toggleMenu.bind(this));
 		  });
 
-		this.container.addEventListener('drop', this.uploadImage);
+		this.container.addEventListener('drop', this.uploadImage.bind(this));
 		this.container.addEventListener('dragover', event => {event.preventDefault()});
 	}
 
@@ -104,9 +106,8 @@ class SwitchMenu {
 		
 		if (currentClassList.contains('new') && currentClassList.contains('active')) {
 			let inputFile = document.createElement('input');
-			inputFile.setAttribute('type', 'file');
-			inputFile.setAttribute('accept', 'image/jpeg, image/png');
-			inputFile.addEventListener('input', this.uploadImage);
+			inputFile.setAttribute('type', 'file');			
+			inputFile.addEventListener('input', this.uploadImage.bind(this));
 			inputFile.click();
 		} else {
 
@@ -179,12 +180,29 @@ class SwitchMenu {
 
 	uploadImage(event) {
 		event.preventDefault();
-		const image = Array.from(event.target.files)[0];
-		const currentImage = document.querySelector('.current-image');
-		currentImage.src = URL.createObjectURL(image);
-		currentImage.addEventListener('load', (event) => {
-			URL.revokeObjectURL(event.target.src);
-		});
+		let image;
+		let accept = ['image/png', 'image/jpeg'];
+		if (event.type == 'input') {
+			image = Array.from(event.target.files)[0];			
+		} else if (event.type == 'drop') {
+			image = event.dataTransfer.files[0];
+		}
+		console.log(image.type);
+		console.log(accept.includes(image.type));
+		if (accept.includes(image.type)) {
+			this.error.style.display = 'none';
+			this.currentImage.src = URL.createObjectURL(image);
+			this.currentImage.addEventListener('load', (event) => {
+				URL.revokeObjectURL(event.target.src);
+			});
+		} else {
+			//эту строку в дальнейшем убрать!!!
+			this.currentImage.src = '';
+
+			this.error.style.display = 'block';
+		}
+
+		//необходимо загруженное изображение отправить на сервер
 
 		/*console.log(this.getImage())
 		if (this.getImage()) {
