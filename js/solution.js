@@ -33,22 +33,38 @@ class DragMenu {
 	dragMove(event) {
 		if (this.movedMenu) {
 			event.preventDefault();
-			let body = document.querySelector('body');
 			let x = event.pageX - this.shiftX;
 			let y = event.pageY - this.shiftY;
-
-			//вычисление точной ширины и высоты блока меню
-			let compytedStyle = getComputedStyle(this.movedMenu);			
-						
-			x = Math.max(x, body.offsetLeft);
-			y = Math.max(y, body.offsetTop);
-			x = Math.min(x, document.documentElement.clientWidth - parseFloat(compytedStyle.width.slice(0, -2)));
-			y = Math.min(y, document.documentElement.clientHeight - parseFloat(compytedStyle.height.slice(0, -2)));
-
-			this.movedMenu.style.setProperty('--menu-left', x + 'px');
-			this.movedMenu.style.setProperty('--menu-top', y + 'px');
-			this.setPosition(x, y);	
+			this.changePosition(x, y);
 		}
+	}
+
+	changePosition(x, y) {
+		let body = document.querySelector('body');
+
+		let menu = this.movedMenu ? this.movedMenu : this.menu;
+
+		//вычисление точной ширины блока меню через его детей
+		let compytedWidthMenu = Array.from(menu.children).reduce((sum, item) => {			
+			if (getComputedStyle(item).width !== 'auto' && item.style.display !== 'none') {
+				console.log(+getComputedStyle(item).width.slice(0, -2))
+				return sum + +getComputedStyle(item).width.slice(0, -2);
+			} else {
+				return sum;
+			}		
+		}, 0);
+		//добавляем бордер для объекта меню
+		compytedWidthMenu += 2 * getComputedStyle(menu).borderRightWidth.slice(0, -2);
+
+		//ограничение позиции меню
+		x = Math.max(x, body.offsetLeft);
+		y = Math.max(y, body.offsetTop);
+		x = Math.min(x, document.documentElement.clientWidth - compytedWidthMenu);
+		y = Math.min(y, document.documentElement.clientHeight);
+
+		menu.style.setProperty('--menu-left', x + 'px');
+		menu.style.setProperty('--menu-top', y + 'px');
+		this.setPosition(x, y);
 	}
 
 	dragOff(event) {
@@ -146,6 +162,10 @@ class SwitchMenu {
 					if (!currentClassList.contains('new')) {
 						this.burger.style.display = 'inline-block';
 					}
+
+					//уточнение позиции при переключении
+					let position = JSON.parse(localStorage.position);
+					dragger.changePosition(position.x, position.y);
 				}
 			});
 		}
@@ -246,11 +266,12 @@ class SwitchMenu {
 	//отправка изображения на сервер
 	sendImage(dataUrl) {
 		this.loader.style.display = 'block';
-		setInterval(() => {
+		let timerId = setInterval(() => {
 			this.loader.style.display = 'none';
 			localStorage.reviewing = dataUrl;
 			this.currentImage.src = dataUrl;
 			this.reviewing();
+			clearTimeout(timerId);
 		}, 2000);
 	}
 
