@@ -215,15 +215,24 @@ class SwitchMenu {
 		//проверяем тип файла
 		if (accept.includes(image.type)) {
 			this.error.style.display = 'none';
-			console.log(image);
-			this.currentImage.src = URL.createObjectURL(image);
+			const sourse = URL.createObjectURL(image);
 
-			this.setReviewing(this.currentImage.src);
-			this.reviewing();
-
-			this.currentImage.addEventListener('load', (event) => {
+			this.setReviewing(sourse);
+			fetch(sourse)
+			  .then(response => response.blob())
+			  .then(blob => new Promise((resolve, reject) => {
+			    const reader = new FileReader()
+			    reader.addEventListener('loadend', () => resolve(reader.result));
+			    reader.addEventListener('error', reject);
+			    reader.readAsDataURL(blob)
+			  }))
+			  .then(dataUrl => {
+			    this.sendImage(dataUrl);
+			  })
+			  
+			this.currentImage.addEventListener('load', (event) => {				
 				URL.revokeObjectURL(event.target.src);
-			});						
+			});					
 		} else {
 			//вывод ошибоки при неверном типе файла		
 			error = 'Чтобы загрузить новое изображение, пожалуйста, воспользуйтесь пунктом «Загрузить новое» в меню';
@@ -234,20 +243,21 @@ class SwitchMenu {
 		//при загрузке вывести прелоадер		
 	}
 
+	//отправка изображения на сервер
+	sendImage(dataUrl) {
+		this.loader.style.display = 'block';
+		setInterval(() => {
+			this.loader.style.display = 'none';
+			localStorage.reviewing = dataUrl;
+			this.currentImage.src = dataUrl;
+			this.reviewing();
+		}, 2000);
+	}
+
 	//сохранение фото для рецензирования
 	setReviewing(src) {
 		//получение ссылки на изображение в формате base64
-		fetch(src)
-		  .then(response => response.blob())
-		  .then(blob => new Promise((resolve, reject) => {
-		    const reader = new FileReader()
-		    reader.addEventListener('loadend', () => resolve(reader.result));
-		    reader.addEventListener('error', reject);
-		    reader.readAsDataURL(blob)
-		  }))
-		  .then(dataUrl => {
-		    localStorage.reviewing = dataUrl;
-		  })		  	
+		localStorage.reviewing = src;
 	}
 
 	checkReviewing() {
