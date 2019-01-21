@@ -247,6 +247,7 @@ class SwitchMenu {
 			    reader.readAsDataURL(blob)
 			  }))
 			  .then(dataUrl => {
+			  	//отправляем изображение на сервер
 			    this.sendImage(dataUrl);
 			  })
 			  
@@ -257,22 +258,47 @@ class SwitchMenu {
 			//вывод ошибоки при неверном типе файла		
 			error = 'Чтобы загрузить новое изображение, пожалуйста, воспользуйтесь пунктом «Загрузить новое» в меню';
 			this.error.style.display = 'block';
-		}
-
-		//необходимо загруженное изображение отправить на сервер
-		//при загрузке вывести прелоадер		
+		}	
 	}
 
 	//отправка изображения на сервер
 	sendImage(dataUrl) {
+		//вывод прелоадера
 		this.loader.style.display = 'block';
+		//console.log(dataUrl);
 		let timerId = setInterval(() => {
 			this.loader.style.display = 'none';
 			localStorage.reviewing = dataUrl;
 			this.currentImage.src = dataUrl;
 			this.reviewing();
+			//чистим таймаут
 			clearTimeout(timerId);
 		}, 2000);
+
+		//пробная отправка на сервер
+		fetch('https://neto-api.herokuapp.com', {
+			body: dataUrl,
+			credentials: 'same-origin',
+			method: 'POST',
+			headers: { 'Content-Type': 'multipart/form-data' }
+		})
+			.then((res) => {
+				console.log(res);
+				if (200 <= res.status && res.status < 300) {
+					return res;
+				}
+				throw new Error(res.statusText);
+			})
+			.then((res) => console.log(res))
+			.then((data) => {
+				if (data.error) {
+					throw new Error(data.message);
+				}
+				console.log(data);
+			})
+			.catch((error) => {
+				console.log(error, error.message);
+			})
 	}
 
 	//сохранение фото для рецензирования
