@@ -216,85 +216,72 @@ class SwitchMenu {
 
 	uploadImage(event) {
 		event.preventDefault();		
-		let image;
+		let image, form = new FormData();
 		const error = this.error.querySelector('.error__message');
 		let accept = ['image/png', 'image/jpeg'];
+		form.append('title', 'Шаблон рецензирования');
+
 		//проверяем откуда пришел файл
 		if (event.type == 'input') {
-			image = Array.from(event.target.files)[0];		
+			image = Array.from(event.target.files)[0];
+			form.append('image', image);
 		} else if (event.type == 'drop') {
 			image = event.dataTransfer.files[0];
-
-			if (!this.menu.querySelector('.new.active')) {
-				//вывод ошибки при вбросе фото в режиме рецензирования
-				error.textContent = 'Чтобы загрузить новое изображение, пожалуйста, воспользуйтесь пунктом «Загрузить новое» в меню';				
-				this.error.style.display = 'block';
-				return;
-			}
+			form.append('image', image);
 		}
-		//проверяем тип файла
-		if (accept.includes(image.type)) {
-			this.error.style.display = 'none';
-			const sourse = URL.createObjectURL(image);
-
-			this.setReviewing(sourse);
-			fetch(sourse)
-			  .then(response => response.blob())
-			  .then(blob => new Promise((resolve, reject) => {
-			    const reader = new FileReader()
-			    reader.addEventListener('loadend', () => resolve(reader.result));
-			    reader.addEventListener('error', reject);
-			    reader.readAsDataURL(blob)
-			  }))
-			  .then(dataUrl => {
-			  	//отправляем изображение на сервер
-			    this.sendImage(dataUrl);
-			  })
-			  
-			this.currentImage.addEventListener('load', (event) => {				
-				URL.revokeObjectURL(event.target.src);
-			});					
-		} else {
-			//вывод ошибоки при неверном типе файла		
-			error = 'Чтобы загрузить новое изображение, пожалуйста, воспользуйтесь пунктом «Загрузить новое» в меню';
+		
+		if (!this.menu.querySelector('.new.active')) {
+			//вывод ошибки при вбросе фото в режиме рецензирования
+			error.textContent = 'Чтобы загрузить новое изображение, пожалуйста, воспользуйтесь пунктом «Загрузить новое» в меню';
 			this.error.style.display = 'block';
-		}	
+			return;
+		} else {
+			//проверяем тип файла
+			if (accept.includes(image.type)) {
+				this.error.style.display = 'none';
+				const sourse = URL.createObjectURL(image);
+				
+				//отправляем на сервер
+				this.sendImage(form);				
+				  
+				this.currentImage.addEventListener('load', (event) => {				
+					URL.revokeObjectURL(event.target.src);
+				});					
+			} else {
+				//вывод ошибоки при неверном типе файла		
+				error.textContent = 'Неверный формат файла. Пожалуйста, выберите изображение в формате .jpg или .png.';
+				this.error.style.display = 'block';
+			}	
+		}
 	}
 
 	//отправка изображения на сервер
-	sendImage(dataUrl) {
+	sendImage(dataForm) {
 		//вывод прелоадера
 		this.loader.style.display = 'block';
-		//console.log(dataUrl);
-		let timerId = setInterval(() => {
-			this.loader.style.display = 'none';
-			localStorage.reviewing = dataUrl;
-			this.currentImage.src = dataUrl;
-			this.reviewing();
-			//чистим таймаут
-			clearTimeout(timerId);
-		}, 2000);
 
-		//пробная отправка на сервер
-		fetch('https://neto-api.herokuapp.com', {
-			body: dataUrl,
+		//отправка нового фона на сервер
+		fetch('https://neto-api.herokuapp.com/pic', {
+			body: dataForm,
 			credentials: 'same-origin',
 			method: 'POST',
-			headers: { 'Content-Type': 'multipart/form-data' }
+			//headers: { 'Content-Type': 'multipart/form-data' }
 		})
 			.then((res) => {
-				console.log(res);
 				if (200 <= res.status && res.status < 300) {
 					return res;
 				}
 				throw new Error(res.statusText);
 			})
-			.then((res) => console.log(res))
+			.then((res) => res.json())
 			.then((data) => {
 				if (data.error) {
 					throw new Error(data.message);
-				}
-				console.log(data);
+				} else {
+					this.setImageProps(data);
+					this.loader.style.display = 'none';
+					this.setReviewing(data);
+				}				
 			})
 			.catch((error) => {
 				console.log(error, error.message);
@@ -302,13 +289,18 @@ class SwitchMenu {
 	}
 
 	//сохранение фото для рецензирования
-	setReviewing(src) {
+	setReviewing(data) {
 		//получение ссылки на изображение в формате base64
-		localStorage.reviewing = src;
+		localStorage.reviewing = JSON.stringify({
+			id: data.id,
+			url: data.url,
+			title: data.title,
+			timestamp: data.timestamp,
+		});
 	}
 
 	checkReviewing() {
-		//console.log(localStorage.reviewing);
+		console.log(localStorage.reviewing);
 
 		//включение сохраненного режима
 		if (!localStorage.reviewing) {
@@ -318,10 +310,20 @@ class SwitchMenu {
 		}
 
 		//вывод сохраненного изображения
-		let reviewing = localStorage.reviewing;
-		if (reviewing) {
-			this.currentImage.src = reviewing;
+		let data = JSON.parse(localStorage.reviewing);
+		if (data) {
+			this.loader.style.display = 'block';
+			this.setImageProps(data);
 		}
+		this.currentImage.addEventListener('load', () => {this.loader.style.display = 'none';})
+	}
+
+	//вывод свойств изображения
+	setImageProps(data) {
+		this.currentImage.src = data.url;
+		this.currentImage.dataset.id = data.id;
+		this.currentImage.dataset.title = data.title;
+		this.currentImage.dataset.timestamp = data.timestamp;
 	}
 }
 
@@ -329,14 +331,15 @@ const dragger = new DragMenu;
 document.addEventListener('DOMContendLoaded', dragger);
 document.addEventListener('DOMContendLoaded', new SwitchMenu);
 
-/*let res = Array.from(document.querySelector('.menu').children).map(item => {	
-	return parseFloat(getComputedStyle(item).width.slice(0, -2));
-});
-console.log(res)
-res = res.reduce((sum, item) => {
-	if (item) {
-		return sum + item;
-	} else return sum;
-}, 0);
-console.log(res)*/
-
+//альтернативное получение ссылки на изображение
+/*fetch(sourse)
+	.then(response => response.blob())
+	.then(blob => new Promise((resolve, reject) => {
+		const reader = new FileReader()
+		reader.addEventListener('loadend', () => resolve(reader.result));
+		reader.addEventListener('error', reject);
+		reader.readAsDataURL(blob)
+	}))
+	.then(dataUrl => {			  	
+		this.sendImage(dataUrl);
+	})*/
