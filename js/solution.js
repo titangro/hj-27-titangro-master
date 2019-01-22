@@ -47,7 +47,7 @@ class DragMenu {
 		//вычисление точной ширины блока меню через его детей
 		let compytedWidthMenu = Array.from(menu.children).reduce((sum, item) => {			
 			if (getComputedStyle(item).width !== 'auto' && item.style.display !== 'none') {
-				console.log(+getComputedStyle(item).width.slice(0, -2))
+				//console.log(+getComputedStyle(item).width.slice(0, -2))
 				return sum + +getComputedStyle(item).width.slice(0, -2);
 			} else {
 				return sum;
@@ -119,6 +119,7 @@ class SwitchMenu {
 		this.container.addEventListener('drop', this.uploadImage.bind(this));
 		this.container.addEventListener('dragover', event => {event.preventDefault()});
 		document.addEventListener('DOMContendLoaded', this.checkReviewing());
+		this.menu.querySelector('.menu_copy').addEventListener('click', this.copyLink.bind(this));
 	}
 
 	toggleMenu(event) {
@@ -172,8 +173,8 @@ class SwitchMenu {
 	}
 
 	publication() {
-		//стартовое меню для тестов
-		//this.burger.style.display = 'none';
+		//появление меню после загрузки
+		this.menu.style.display = 'block';
 
 		//console.log('публикация')
 
@@ -195,6 +196,8 @@ class SwitchMenu {
 	}
 
 	reviewing() {
+		//появление меню после загрузки
+		this.menu.style.display = 'block';
 
 		//console.log('рецензирование');
 
@@ -212,6 +215,9 @@ class SwitchMenu {
 			.forEach((node) => {
 				node.style.display = 'none';
 			});
+
+		//режим поделиться по умолчанию
+		this.menu.querySelector('.share').click();
 	}
 
 	uploadImage(event) {
@@ -259,6 +265,7 @@ class SwitchMenu {
 	sendImage(dataForm) {
 		//вывод прелоадера
 		this.loader.style.display = 'block';
+		this.menu.style.display = 'none';
 
 		//отправка нового фона на сервер
 		fetch('https://neto-api.herokuapp.com/pic', {
@@ -278,9 +285,42 @@ class SwitchMenu {
 				if (data.error) {
 					throw new Error(data.message);
 				} else {
-					this.setImageProps(data);
-					this.loader.style.display = 'none';
+					this.setImageProps(data);					
 					this.setReviewing(data);
+					
+					this.turnOffLoader(data.id);
+				}				
+			})
+			.catch((error) => {
+				console.log(error, error.message);
+			})
+	}
+
+	getImageInfo(id) {
+		//вывод прелоадера
+		this.loader.style.display = 'block';
+		this.menu.style.display = 'none';
+
+		//отправка нового фона на сервер
+		fetch(`https://neto-api.herokuapp.com/pic/${id}`)
+			.then((res) => {
+				if (200 <= res.status && res.status < 300) {
+					return res;
+				}
+				throw new Error(res.statusText);
+			})
+			.then((res) => res.json())
+			.then((data) => {
+				if (data.error) {
+					throw new Error(data.message);
+				} else {
+					this.setImageProps(data);					
+					this.setReviewing(data);
+					
+					//вывод ссылки, переключить на режим поделиться
+					this.turnOffLoader(data.id);
+
+					//вывести всю информацию о изображении: комментарии, маску
 				}				
 			})
 			.catch((error) => {
@@ -300,22 +340,54 @@ class SwitchMenu {
 	}
 
 	checkReviewing() {
-		console.log(localStorage.reviewing);
+		//проверка гет параметра
+		const getParams = location.search.replace('?','').split('&').reduce((arr,item) => {
+			const elem = item.split('=');
+            arr[elem[0]] = elem[1];
+            return arr;
+		}, {});
+
+		if (getParams.id) {
+			//получение и вывод информации по изображению			
+			return this.getImageInfo(getParams.id);
+		}
 
 		//включение сохраненного режима
 		if (!localStorage.reviewing) {
 			return this.publication();
-		} else {
-			this.reviewing();
 		}
 
 		//вывод сохраненного изображения
-		let data = JSON.parse(localStorage.reviewing);
+		const data = JSON.parse(localStorage.reviewing);
 		if (data) {
 			this.loader.style.display = 'block';
+			this.menu.style.display = 'none';
 			this.setImageProps(data);
 		}
-		this.currentImage.addEventListener('load', () => {this.loader.style.display = 'none';})
+		this.turnOffLoader(data.id);
+	}
+
+	//выключить прелоадер (режим поделиться)
+	turnOffLoader(id) {
+		//изменить ссылку на актуальную, добавить ссылку на маску
+		const link = 'file:///F:/gits/hj-27-titangro-master/index.html';
+
+		this.currentImage.addEventListener('load', () => {
+			this.loader.style.display = 'none';
+			this.menu.querySelector('.menu__url').value = link + '?' + id;
+			this.reviewing();
+		});		
+	}
+
+	//сохранение ссылки в буфер обмена
+	copyLink() {
+		navigator.clipboard.writeText(this.menu.querySelector('.menu__url').value)
+		  .then((res) => {
+		    console.log('Ссылка скопирована в буфер обмена');
+		  })
+		  .catch((err) => {
+		    console.log('Ошибка при сохранении ссылки в буфер:', err);
+		  });
 	}
 
 	//вывод свойств изображения
@@ -324,7 +396,27 @@ class SwitchMenu {
 		this.currentImage.dataset.id = data.id;
 		this.currentImage.dataset.title = data.title;
 		this.currentImage.dataset.timestamp = data.timestamp;
+
+		//в дальнейшем использовать свойства при обновлении сведений о изображении
+		/*data.mask;
+		data.comments = {
+			key: {
+				left,
+				message,
+				timestamp,
+				top,
+			}
+		};*/
 	}
+
+	//получение информации об изображении при обновлении
+	//GET /pic/${id}
+
+	//добавление комментария к  изображению
+	//POST /pic/${id}/comments
+
+	//обновление данных в реальном времени
+	//wss://neto-api.herokuapp.com/pic/${id}
 }
 
 const dragger = new DragMenu;
