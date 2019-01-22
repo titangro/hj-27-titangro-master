@@ -95,7 +95,7 @@ class DragMenu {
 	}
 }
 
-class SwitchMenu {
+class Switcher {
 	constructor() {
 		this.menu = document.querySelector('.menu');
 		this.burger = this.menu.querySelector('.burger');
@@ -215,9 +215,6 @@ class SwitchMenu {
 			.forEach((node) => {
 				node.style.display = 'none';
 			});
-
-		//режим поделиться по умолчанию
-		this.menu.querySelector('.share').click();
 	}
 
 	uploadImage(event) {
@@ -317,8 +314,8 @@ class SwitchMenu {
 					this.setImageProps(data);					
 					this.setReviewing(data);
 					
-					//вывод ссылки, переключить на режим поделиться
-					this.turnOffLoader(data.id);
+					//вывод ссылки, переключить на режим поделиться(или комментирования, если изображением поделились)
+					this.turnOffLoader(data.id, true);
 
 					//вывести всю информацию о изображении: комментарии, маску
 				}				
@@ -368,7 +365,7 @@ class SwitchMenu {
 	}
 
 	//выключить прелоадер (режим поделиться)
-	turnOffLoader(id) {
+	turnOffLoader(id, shared = false) {
 		//изменить ссылку на актуальную, добавить ссылку на маску
 		const link = 'file:///F:/gits/hj-27-titangro-master/index.html';
 
@@ -376,7 +373,15 @@ class SwitchMenu {
 			this.loader.style.display = 'none';
 			this.menu.querySelector('.menu__url').value = link + '?' + id;
 			this.reviewing();
-		});		
+
+			//режим поделиться по умолчанию
+			if (shared) {
+				//если перейти по ссылки, которой поделились, попадаем в режим комментирования
+				this.menu.querySelector('.comments').click();
+			} else {
+				this.menu.querySelector('.share').click();
+			}
+		});
 	}
 
 	//сохранение ссылки в буфер обмена
@@ -409,9 +414,6 @@ class SwitchMenu {
 		};*/
 	}
 
-	//получение информации об изображении при обновлении
-	//GET /pic/${id}
-
 	//добавление комментария к  изображению
 	//POST /pic/${id}/comments
 
@@ -419,9 +421,167 @@ class SwitchMenu {
 	//wss://neto-api.herokuapp.com/pic/${id}
 }
 
+class Commenter {
+	constructor() {
+		this.currentImage = document.querySelector('.current-image');
+		this.wrap = document.querySelector('.wrap.app');
+		this.commentsOff = document.querySelector('#comments-off');
+		this.commentsOn = document.querySelector('#comments-on');
+
+		this.initEvents();
+	}
+
+	initEvents() {
+		this.commentsOn.checked = true;
+		this.commentsOff.checked = false;
+
+		this.currentImage.addEventListener('click', this.showCommentForm.bind(this));
+		this.commentsOn.addEventListener('change', this.toggleComments.bind(this));
+		this.commentsOff.addEventListener('change', this.toggleComments.bind(this));
+	}
+
+	//создать новый маркер для комментариев
+	showCommentForm(event) {		
+		if (this.wrap.querySelector('.mode.comments').classList.contains('active')
+			&& this.commentsOn.checked) {
+			const form = this.engineComments(this.generateCommentForm(event.layerX, event.layerY));		
+			this.wrap.appendChild(form);
+		}		
+	}
+
+	//скрыть маркеры по кнопке
+	toggleComments() {
+		Array.from(this.wrap.querySelectorAll('.comments__form')).forEach((item) => {
+			item.style.display = this.commentsOff.checked ? 'none' : 'block';
+		});
+	}
+
+	//шаблонизатор для формы комментариев
+	generateCommentForm(x, y) {
+		const visibility = this.commentsOn.checked ? 'block;' : 'none;';
+		return {
+			tag: 'form',
+			cls: 'comments__form',
+			attrs: {
+				style: `left: ${x - 10}px; top: ${y + 10}px; display: ${visibility}`,
+			},
+			childs: [{
+				tag: 'span',
+				cls: 'comments__marker',
+			},{
+				tag: 'input',
+				cls: 'comments__marker-checkbox',
+				attrs: {
+					type: 'checkbox'
+				}
+			},{
+				tag: 'div',
+				cls: 'comments__body',
+				childs: [{
+					tag: 'div',
+					cls: 'comment',
+					childs: [{
+						tag: 'div',
+						cls: 'loader',
+						attrs: {
+							style: 'display: none;'
+						},
+						childs: [{tag: 'span'},{tag: 'span'},{tag: 'span'},{tag: 'span'},{tag: 'span'}],
+					}]
+				},{
+					tag: 'textarea',
+					cls: 'comments__input',
+					attrs: {
+						type: 'text',
+						placeholder: 'Напишите ответ...',
+					}
+				},{
+					tag: 'input',
+					cls: 'comments__close',
+					attrs: {
+						type: 'button',
+						value: 'Закрыть',
+					}
+				},{
+					tag: 'input',
+					cls: 'comments__submit',
+					attrs: {
+						type: 'submit',
+						value: 'Отправить',
+					}
+				}]
+			}]
+		}
+	}
+
+				/*[comments.reduce((frm, comment) => {
+					frm.appendChild(generateOneComment(comment));
+					return frm;
+				}, document.createDocumentFragment()),]*/
+
+	//шаблонизатор 1 сообщения
+	generateOneComment(comment) {
+		return {
+			tag: 'div',
+			cls: 'comment',
+			childs: [{
+				tag: 'p',
+				cls: 'comment__time',
+				childs: comment.timestamp,
+			},{
+				tag: 'p',
+				cls: 'comment__message',
+				childs: comment.message,
+			}]
+		}
+	}
+
+	//ядро для обработки шаблонов
+	engineComments(node) {
+		if (node === undefined || node === null || node === null) {
+			return createTextNode('');
+		}
+		if (typeof node === 'string' || typeof node === 'number' || typeof block === true) {				
+			return document.createTextNode(node);		
+		}
+		if (Array.isArray(node)) {
+			return node.reduce((frm, elem) => {
+				frm.appendChild(this.engineComments(elem));
+				return frm;
+			}, document.createDocumentFragment());
+		}
+		const element = document.createElement(node.tag || 'div');
+		element.classList.add(...[].concat(node.cls).filter(Boolean));
+
+	    if (node.attrs) {
+	        Object.keys(node.attrs).forEach(key => {
+	           	element.setAttribute(key, node.attrs[key]);
+	        });
+	    }
+	    
+	    if (node.childs) {
+	        element.appendChild(this.engineComments(node.childs));
+	    }
+
+	    return element;
+	}
+}
+
+class Painter {
+	constructor() {
+		this.initEvents();
+	}
+
+	initEvents() {
+
+	}
+}
+
 const dragger = new DragMenu;
 document.addEventListener('DOMContendLoaded', dragger);
-document.addEventListener('DOMContendLoaded', new SwitchMenu);
+document.addEventListener('DOMContendLoaded', new Switcher);
+document.addEventListener('DOMContendLoaded', new Commenter);
+document.addEventListener('DOMContendLoaded', new Painter);
 
 //альтернативное получение ссылки на изображение
 /*fetch(sourse)
