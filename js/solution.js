@@ -446,8 +446,8 @@ class Commenter {
 	showCommentForm(event) {		
 		if (this.wrap.querySelector('.mode.comments').classList.contains('active')
 			&& this.commentsOn.checked) {
-			const form = this.engineComments(this.generateCommentForm(event.layerX, event.layerY));
-			form.addEventListener('click', this.toggleMarks.bind(this));				
+			const form = this.engineComments(this.generateCommentForm(event.offsetX, event.offsetY));
+			form.addEventListener('click', this.toggleMarks.bind(this));
 			this.wrap.appendChild(form);
 		}		
 	}
@@ -480,6 +480,11 @@ class Commenter {
 		//отправление сообщения на сервер
 		if (event.target.classList.contains('comments__submit')) {
 			event.preventDefault();
+		}
+
+		//поле для ввода сообщения
+		if (event.target.classList.contains('comments__input')) {
+			event.target.focus();
 		}
 	}
 
