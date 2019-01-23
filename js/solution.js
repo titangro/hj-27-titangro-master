@@ -87,8 +87,10 @@ class DragMenu {
 	}
 
 	checkPosition() {
-		let position = JSON.parse(localStorage.position);
-		if (position) {
+		if (!localStorage.position) {
+			return
+		} else {
+			let position = JSON.parse(localStorage.position);
 			this.menu.style.setProperty('--menu-left', position.x + 'px');
 			this.menu.style.setProperty('--menu-top', position.y + 'px');			
 		}
@@ -437,14 +439,15 @@ class Commenter {
 
 		this.currentImage.addEventListener('click', this.showCommentForm.bind(this));
 		this.commentsOn.addEventListener('change', this.toggleComments.bind(this));
-		this.commentsOff.addEventListener('change', this.toggleComments.bind(this));
+		this.commentsOff.addEventListener('change', this.toggleComments.bind(this));		
 	}
 
 	//создать новый маркер для комментариев
 	showCommentForm(event) {		
 		if (this.wrap.querySelector('.mode.comments').classList.contains('active')
 			&& this.commentsOn.checked) {
-			const form = this.engineComments(this.generateCommentForm(event.layerX, event.layerY));		
+			const form = this.engineComments(this.generateCommentForm(event.layerX, event.layerY));
+			form.addEventListener('click', this.toggleMarks.bind(this));				
 			this.wrap.appendChild(form);
 		}		
 	}
@@ -456,14 +459,42 @@ class Commenter {
 		});
 	}
 
+	//изменение уровня видимости у маркеров
+	toggleMarks(event) {
+		//открытие только 1 маркера
+		if (event.target.classList.contains('comments__marker-checkbox')) {
+			//event.target.setAttribute(disabled, "");
+			Array.from(this.wrap.querySelectorAll('.comments__marker-checkbox')).forEach((item) => {
+				item.checked = false;
+				item.parentElement.style.zIndex = 0;
+			});
+			event.target.checked = true;
+			event.target.parentElement.style.zIndex = 1;
+		}
+
+		//закрытие маркера
+		if (event.target.classList.contains('comments__close')) {
+			event.target.parentElement.parentElement.children[1].checked = false;
+		}
+
+		//отправление сообщения на сервер
+		if (event.target.classList.contains('comments__submit')) {
+			event.preventDefault();
+		}
+	}
+
 	//шаблонизатор для формы комментариев
 	generateCommentForm(x, y) {
+		const bound = this.currentImage.getBoundingClientRect();
 		const visibility = this.commentsOn.checked ? 'block;' : 'none;';
 		return {
 			tag: 'form',
 			cls: 'comments__form',
 			attrs: {
-				style: `left: ${x - 10}px; top: ${y + 10}px; display: ${visibility}`,
+				style: `z-index: 0;
+						left: ${bound.x + x - 20}px; 
+						top: ${bound.y + y}px; 
+						display: ${visibility}`,
 			},
 			childs: [{
 				tag: 'span',
