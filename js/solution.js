@@ -480,12 +480,21 @@ class Commenter {
 		//отправление сообщения на сервер
 		if (event.target.classList.contains('comments__submit')) {
 			event.preventDefault();
+			let message = event.target.previousSibling.previousSibling.value;
+			if (message != "") {
+				this.sendComment(message);
+			}
 		}
 
 		//поле для ввода сообщения
 		if (event.target.classList.contains('comments__input')) {
 			event.target.focus();
 		}
+	}
+
+	//отправка сообщения на сервер
+	sendComment(message) {
+		console.log(message);
 	}
 
 	//шаблонизатор для формы комментариев
