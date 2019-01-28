@@ -496,18 +496,21 @@ class Commenter {
 
 	//отправка сообщения на сервер
 	sendComment(message, left, top) {
-		const dataForm = `message=${message}&left=${left}&top=${top}`;
+		const dataForm = `message=${message}&left=${Math.floor(left)}&top=${Math.floor(top)}`;
 		/*const dataForm = new FormData;
 		dataForm.append('message', message);
 		dataForm.append('left', left);
 		dataForm.append('top', top);*/
 		console.log(dataForm);
-		fetch(`http://neto-api.herokuapp.com/pic/${this.currentImage.dataset.id}/comments`, {
+		fetch(`https://neto-api.herokuapp.com/pic/${this.currentImage.dataset.id}/comments`, {
 			data: dataForm,
 			credetials: 'same-origin',
 			method: 'POST',
 			header: {
-				'Content-Type': 'application/x-www-form-urlencoded',
+				//'Content-Type': 'application/xhtml+xml',
+				//'Content-Type': 'application/x-www-form-urlencoded',
+				//'Content-Type': 'multipart/form-data',
+				//text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
 			}
 		})
 			.then((res) => {
@@ -648,11 +651,40 @@ class Commenter {
 
 class Painter {
 	constructor() {
+		this.currentImage = document.querySelector('.current-image');
+		this.wrap = document.querySelector('.wrap.app');
+		this.canvas = document.createElement('canvas');
+		this.ctx = this.canvas.getContext('2d');
+		this.point = [];
+		this.drawing = false;
+		this.needsRepaint = false;
+		this.radius = 4;
+		Array.from(this.wrap.querySelector('.draw-tools input')).forEach(item => {
+			if (item.cheked) console.log(item);
+		});
+		console.log(this.color)
+		this.canvas.style = `position: absolute;
+						top: 50%;
+						left: 50%;
+						transform: translate(-50%, -50%);
+						z-index: 1;`;
+
 		this.initEvents();
 	}
 
 	initEvents() {
+		this.currentImage.addEventListener('load', () => {			
+			this.initCanvas();
+		});
 
+	}
+
+	initCanvas() {
+		this.canvas.width = getComputedStyle(this.currentImage).width.slice(0, -2);
+		this.canvas.height = getComputedStyle(this.currentImage).height.slice(0, -2);
+		if (!this.wrap.querySelector('canvas')){
+			this.wrap.appendChild(this.canvas);
+		}
 	}
 }
 
