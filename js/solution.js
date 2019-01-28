@@ -347,7 +347,7 @@ class Switcher {
 		}, {});
 
 		if (getParams.id) {
-			//получение и вывод информации по изображению			
+			//получение и вывод информации по изображению
 			return this.getImageInfo(getParams.id);
 		}
 
@@ -480,9 +480,11 @@ class Commenter {
 		//отправление сообщения на сервер
 		if (event.target.classList.contains('comments__submit')) {
 			event.preventDefault();
-			let message = event.target.previousSibling.previousSibling.value;
+			const message = event.target.previousSibling.previousSibling.value;
 			if (message != "") {
-				this.sendComment(message);
+				const left = +event.currentTarget.style.left.slice(0, -2),
+					top = +event.currentTarget.style.top.slice(0, -2);
+				this.sendComment(message, left, top);
 			}
 		}
 
@@ -493,8 +495,40 @@ class Commenter {
 	}
 
 	//отправка сообщения на сервер
-	sendComment(message) {
-		console.log(message);
+	sendComment(message, left, top) {
+		const dataForm = `message=${message}&left=${left}&top=${top}`;
+		/*const dataForm = new FormData;
+		dataForm.append('message', message);
+		dataForm.append('left', left);
+		dataForm.append('top', top);*/
+		console.log(dataForm);
+		fetch(`http://neto-api.herokuapp.com/pic/${this.currentImage.dataset.id}/comments`, {
+			data: dataForm,
+			credetials: 'same-origin',
+			method: 'POST',
+			header: {
+				'Content-Type': 'application/x-www-form-urlencoded',
+			}
+		})
+			.then((res) => {
+				console.log(res)
+				if (200 <= res.status && res.status < 300) {
+					return res;
+				}
+				throw new Error(res.statusText);
+			})
+			.then((res) => res.json())
+			.then((data) => {
+				if (data.error) {
+					throw new Error(data.message);
+				} else {
+					console.log(data);
+				}				
+			})
+			.catch((error) => {
+				console.log(error, error.message);
+			});
+		//Новое сообщение		
 	}
 
 	//шаблонизатор для формы комментариев
@@ -623,10 +657,12 @@ class Painter {
 }
 
 const dragger = new DragMenu;
+const commentMaker = new Commenter;
+const paintMaker = new Painter;
 document.addEventListener('DOMContendLoaded', dragger);
 document.addEventListener('DOMContendLoaded', new Switcher);
-document.addEventListener('DOMContendLoaded', new Commenter);
-document.addEventListener('DOMContendLoaded', new Painter);
+document.addEventListener('DOMContendLoaded', commentMaker);
+document.addEventListener('DOMContendLoaded', paintMaker);
 
 //альтернативное получение ссылки на изображение
 /*fetch(sourse)
