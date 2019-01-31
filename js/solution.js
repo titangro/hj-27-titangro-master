@@ -659,10 +659,18 @@ class Painter {
 		this.drawing = false;
 		this.needsRepaint = false;
 		this.radius = 4;
-		Array.from(this.wrap.querySelector('.draw-tools input')).forEach(item => {
-			if (item.cheked) console.log(item);
-		});
-		console.log(this.color)
+		this.colorBox = {
+			red: '#eb5d56', yellow:'#f4d22f', green: '#6ebf44', blue: '#52a7f7', purple: '#b36ae0'
+		}
+		this.tools = this.wrap.querySelectorAll('.draw-tools input');
+		Array.from(this.tools).forEach(item => {
+			item.addEventListener('click', event => {				
+				this.color = this.colorBox[event.target.value];
+			})
+			if (item.checked) {
+				this.color = this.colorBox[item.value];
+			}
+		});		
 		this.canvas.style = `position: absolute;
 						top: 50%;
 						left: 50%;
@@ -675,8 +683,13 @@ class Painter {
 	initEvents() {
 		this.currentImage.addEventListener('load', () => {			
 			this.initCanvas();
+			this.canvas.addEventListener('mousedown', this.activatePaint.bind(this));
+			this.canvas.addEventListener('mouseup', this.deactivatePaint.bind(this));
+			this.canvas.addEventListener('mouseleave', this.deactivatePaint.bind(this));
+			this.canvas.addEventListener('mousemove', this.draw.bind(this));
 		});
 
+		//document.addEventListener('mouseup', this.dragOff.bind(this));
 	}
 
 	initCanvas() {
@@ -684,6 +697,26 @@ class Painter {
 		this.canvas.height = getComputedStyle(this.currentImage).height.slice(0, -2);
 		if (!this.wrap.querySelector('canvas')){
 			this.wrap.appendChild(this.canvas);
+		}
+	}
+
+	activatePaint(event) {
+		if (this.wrap.querySelector('.mode.draw').classList.contains('active')) {
+			this.drawing = true;
+			this.needsRepaint = true;
+		}
+	}
+
+	deactivatePaint(event) {
+		if (this.wrap.querySelector('.mode.draw').classList.contains('active')) {
+			this.drawing = false;
+			this.needsRepaint = false;
+		}
+	}
+
+	draw(event) {
+		if (this.drawing) {
+			console.log(event)
 		}
 	}
 }
