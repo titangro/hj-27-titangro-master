@@ -655,7 +655,7 @@ class Painter {
 		this.wrap = document.querySelector('.wrap.app');
 		this.canvas = document.createElement('canvas');
 		this.ctx = this.canvas.getContext('2d');
-		this.point = [];
+		this.points = [];
 		this.drawing = false;
 		this.needsRepaint = false;
 		this.radius = 4;
@@ -677,17 +677,20 @@ class Painter {
 						transform: translate(-50%, -50%);
 						z-index: 1;`;
 
-		this.initEvents();
+		this.initEvents();		
 	}
 
 	initEvents() {
+		console.log('beforeInit');
 		this.currentImage.addEventListener('load', () => {			
 			this.initCanvas();
 			this.canvas.addEventListener('mousedown', this.activatePaint.bind(this));
 			this.canvas.addEventListener('mouseup', this.deactivatePaint.bind(this));
 			this.canvas.addEventListener('mouseleave', this.deactivatePaint.bind(this));
 			this.canvas.addEventListener('mousemove', this.draw.bind(this));
-		});
+			//this.canvas.addEventListener('DOMContendLoaded', );
+			this.tick.bind(this);			
+		});		
 
 		//document.addEventListener('mouseup', this.dragOff.bind(this));
 	}
@@ -700,10 +703,11 @@ class Painter {
 		}
 	}
 
-	activatePaint(event) {
+	activatePaint(event) {		
 		if (this.wrap.querySelector('.mode.draw').classList.contains('active')) {
 			this.drawing = true;
 			this.needsRepaint = true;
+			this.ctx.moveTo(event.pageX, event.pageY);
 		}
 	}
 
@@ -716,9 +720,75 @@ class Painter {
 
 	draw(event) {
 		if (this.drawing) {
-			console.log(event)
+			const point = this.pushPoint(event.offsetX, event.offsetY);
+			console.log(point)
+			/*this.ctx.beginPath();
+      		this.ctx.moveTo(x, y);
+		    this.changeWidth(this.isReduce);
+		    this.changeColor(event.shiftKey);
+		    this.ctx.lineTo(x, y);
+		    this.ctx.stroke();*/
 		}
 	}
+
+	pushPoint(x, y) {
+		return [x, y];
+	}
+
+	circle(point) {
+		console.log('circle')
+	  	this.ctx.beginPath(); 
+	  	this.ctx.fillStyle = this.color;
+	  	this.ctx.arc(point[0], point[1], this.radius, 0, 2 * Math.PI);
+	  	this.ctx.fill();
+	  	this.ctx.closePath();
+	}
+
+	addCurve(points1, points2) {
+		console.log('addCurve')
+		if (points2) {
+		  this.ctx.beginPath(); 
+		  this.ctx.lineWidth = points1[3];
+		  this.ctx.lineJoin = 'round';
+		  this.ctx.lineCap = 'round'; 
+		  this.ctx.strokeStyle = `hsl(${points1[2]},100%,50%)`;  	  
+
+		  this.ctx.moveTo(points2[0],points2[1]);
+
+		  this.smoothCurveBetween([points1[0],points1[1]],
+		    					[points2[0],points2[1]]);
+		  this.ctx.stroke();  
+		}
+	}
+
+	smoothCurveBetween(point1, point2) {
+		console.log('smoothCurveBetween')
+		this.ctx.quadraticCurveTo(...point1, ...point2);	
+	}
+
+	repaint() {
+		console.log('repaint')
+	  	this.ctx.clearRect(0, 0, draw.width, draw.height);
+	  	let i = 1;
+	  	this.points
+	    	.forEach((point) => {
+	      	this.circle(point);       	
+	      	if (this.points && this.points.length > 1) {
+	      		this.addCurve(this.points[i-1], this.points[i]);
+	      	}  
+	      	i++;	    	
+	    });
+	}
+
+	tick() {
+		console.log('tick')
+		if(this.needsRepaint) {
+			this.repaint();
+			this.needsRepaint = false;
+		}
+
+		window.requestAnimationFrame(this.tick);
+	}	
 }
 
 const dragger = new DragMenu;
