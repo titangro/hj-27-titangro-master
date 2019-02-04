@@ -443,9 +443,10 @@ class Commenter {
 	}
 
 	//создать новый маркер для комментариев
-	showCommentForm(event) {		
+	showCommentForm(event) {
 		if (this.wrap.querySelector('.mode.comments').classList.contains('active')
 			&& this.commentsOn.checked) {
+
 			const form = this.engineComments(this.generateCommentForm(event.offsetX, event.offsetY));
 			form.addEventListener('click', this.toggleMarks.bind(this));
 			this.wrap.appendChild(form);
@@ -689,7 +690,7 @@ class Painter {
 			this.canvas.addEventListener('mouseleave', this.deactivatePaint.bind(this));
 			this.canvas.addEventListener('mousemove', this.draw.bind(this));
 			//this.canvas.addEventListener('DOMContendLoaded', );
-			this.tick.bind(this);			
+			//this.tick.bind(this);			
 		});		
 
 		//document.addEventListener('mouseup', this.dragOff.bind(this));
@@ -793,11 +794,11 @@ class Painter {
 
 const dragger = new DragMenu;
 const commentMaker = new Commenter;
-const paintMaker = new Painter;
+//const paintMaker = new Painter;
 document.addEventListener('DOMContendLoaded', dragger);
 document.addEventListener('DOMContendLoaded', new Switcher);
 document.addEventListener('DOMContendLoaded', commentMaker);
-document.addEventListener('DOMContendLoaded', paintMaker);
+//document.addEventListener('DOMContendLoaded', paintMaker);
 
 //альтернативное получение ссылки на изображение
 /*fetch(sourse)
