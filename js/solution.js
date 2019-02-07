@@ -102,7 +102,7 @@ class Switcher {
 		this.menu = document.querySelector('.menu');
 		this.burger = this.menu.querySelector('.burger');
 		this.currentImage = document.querySelector('.current-image');
-		this.container = document.querySelector('.wrap.app');
+		this.wrap = document.querySelector('.wrap.app');
 		this.error = document.querySelector('.error');
 		this.loader = document.querySelector('.image-loader');		
 		
@@ -118,8 +118,8 @@ class Switcher {
 		  	node.addEventListener('click', this.toggleMenu.bind(this));
 		  });
 
-		this.container.addEventListener('drop', this.uploadImage.bind(this));
-		this.container.addEventListener('dragover', event => {event.preventDefault()});
+		this.wrap.addEventListener('drop', this.uploadImage.bind(this));
+		this.wrap.addEventListener('dragover', event => {event.preventDefault()});
 		document.addEventListener('DOMContendLoaded', this.checkReviewing());
 		this.menu.querySelector('.menu_copy').addEventListener('click', this.copyLink.bind(this));
 	}
@@ -130,6 +130,15 @@ class Switcher {
 
 		let switcher = ['new', 'comments', 'draw', 'share'];
 		let currentClassList = event.currentTarget.classList;
+		let mask = this.wrap.querySelector('canvas');
+		mask.style.zIndex = 0;
+		//возможность кликнуть по комментариям
+		Array.from(this.wrap.querySelectorAll('.comments__marker-checkbox')).forEach((item) => {
+			item.checked = false;
+			item.style.zIndex = 1;
+			item.parentElement.checked = false;
+			item.parentElement.style.zIndex = 1;
+		});
 		
 		if (currentClassList.contains('new') && currentClassList.contains('active')) {
 			//загрузка фото по клику "Загрузить новое"
@@ -169,6 +178,21 @@ class Switcher {
 					//уточнение позиции при переключении
 					let position = JSON.parse(localStorage.position);
 					dragger.changePosition(position.x, position.y);
+
+					//отображение/отключение canvas при переключение на рисование					
+					mask.style.zIndex = cls === 'draw' ? 1 : 0;
+					if (cls === 'draw') {
+						maskMaker.tick();
+						//скрыть комментарии под маску для рисования 
+						Array.from(this.wrap.querySelectorAll('.comments__marker-checkbox')).forEach((item) => {
+							item.checked = false;
+							item.style.zIndex = 0;
+							item.parentElement.checked = false;
+							item.parentElement.style.zIndex = 0;
+							console.log(item.parentElement)
+						});
+					}					
+					//console.log(cls);
 				}
 			});
 		}
@@ -217,6 +241,16 @@ class Switcher {
 			.forEach((node) => {
 				node.style.display = 'none';
 			});
+
+		//возможность кликнуть по комментариям
+		let mask = this.wrap.querySelector('canvas');
+		Array.from(this.wrap.querySelectorAll('.comments__marker-checkbox')).forEach((item) => {
+			item.checked = false;
+			item.style.zIndex = 1;
+			item.parentElement.checked = false;
+			item.parentElement.style.zIndex = 1;			
+		});
+		mask.style.zIndex = 0;
 	}
 
 	uploadImage(event) {
@@ -423,33 +457,183 @@ class Switcher {
 	//wss://neto-api.herokuapp.com/pic/${id}
 }
 
-class Commenter {
-	constructor() {
+class Masker {
+	constructor(canvas = document.createElement('canvas')) {
 		this.currentImage = document.querySelector('.current-image');
 		this.wrap = document.querySelector('.wrap.app');
-		this.commentsOff = document.querySelector('#comments-off');
-		this.commentsOn = document.querySelector('#comments-on');
+		this.canvas = canvas;
+		this.ctx = this.canvas.getContext('2d');
+		this.curves = [];
+		this.drawing = false;
+		this.needsRepaint = false;
+		this.radius = 4;
 
-		this.initEvents();
+		this.commentsOff;
+		this.commentsOn;
+
+		this.colorBox = {
+			red: '#eb5d56', yellow:'#f4d22f', green: '#6ebf44', blue: '#52a7f7', purple: '#b36ae0'
+		}
+		this.tools = this.wrap.querySelectorAll('.draw-tools input');
+		Array.from(this.tools).forEach(item => {
+			item.addEventListener('click', event => {				
+				this.color = this.colorBox[event.target.value];
+			})
+			if (item.checked) {
+				this.color = this.colorBox[item.value];
+			}
+		});		
+		this.canvas.style = `position: absolute;
+						top: 50%;
+						left: 50%;
+						transform: translate(-50%, -50%);
+						z-index: 0;`;
+
+		this.initEvents();		
 	}
 
 	initEvents() {
-		this.commentsOn.checked = true;
-		this.commentsOff.checked = false;
+		//console.log('beforeInit');
+		this.currentImage.addEventListener('load', () => {			
+			this.initCanvas();
+			this.canvas.addEventListener('mousedown', this.activatePaint.bind(this));
+			this.canvas.addEventListener('mouseup', this.deactivatePaint.bind(this));
+			this.canvas.addEventListener('mouseleave', this.deactivatePaint.bind(this));
+			this.canvas.addEventListener('mousemove', this.draw.bind(this));
+			//this.canvas.addEventListener('DOMContendLoaded', );
+			//this.tick.bind(this);
 
-		this.currentImage.addEventListener('click', this.showCommentForm.bind(this));
-		this.commentsOn.addEventListener('change', this.toggleComments.bind(this));
-		this.commentsOff.addEventListener('change', this.toggleComments.bind(this));		
+			//события для комментариев
+			this.canvas.addEventListener('click', this.showCommentForm.bind(this));
+
+			this.commentsOff = document.querySelector('#comments-off');
+			this.commentsOn = document.querySelector('#comments-on');
+			this.commentsOn.checked = true;
+			this.commentsOff.checked = false;
+
+			this.commentsOn.addEventListener('change', this.toggleComments.bind(this));
+			this.commentsOff.addEventListener('change', this.toggleComments.bind(this));	
+		});		
+
+		//document.addEventListener('mouseup', this.dragOff.bind(this));
 	}
 
-	//создать новый маркер для комментариев
+	//рисовашка
+
+	initCanvas() {
+		this.canvas.width = getComputedStyle(this.currentImage).width.slice(0, -2);
+		this.canvas.height = getComputedStyle(this.currentImage).height.slice(0, -2);
+		if (!this.wrap.querySelector('canvas')){
+			this.wrap.appendChild(this.canvas);
+		}
+	}
+
+	activatePaint(event) {		
+		if (this.wrap.querySelector('.mode.draw').classList.contains('active')) {
+			//console.log('activatePaint')
+			this.drawing = true;
+			//this.needsRepaint = true;
+			const curve = [];
+			curve.push(this.pushCurve(event.offsetX, event.offsetY, this.color));
+			this.curves.push(curve);
+			this.needsRepaint = true;
+			this.ctx.moveTo(event.pageX, event.pageY);
+		}
+	}
+
+	deactivatePaint(event) {
+		if (this.wrap.querySelector('.mode.draw').classList.contains('active')) {
+			//console.log('deactivatePaint')
+			this.drawing = false;
+			//this.needsRepaint = false;
+		}
+	}
+
+	draw(event) {
+		if (this.drawing) {
+			//console.log('draw painter')
+			const point = this.pushCurve(event.offsetX, event.offsetY, this.color);
+			this.curves[this.curves.length - 1].push(point);
+    		this.needsRepaint = true;
+			//this.circle(point);
+			/*this.ctx.beginPath();
+      		this.ctx.moveTo(x, y);
+		    this.changeWidth(this.isReduce);
+		    this.changeColor(event.shiftKey);
+		    this.ctx.lineTo(x, y);
+		    this.ctx.stroke();*/
+		}
+	}
+
+	pushCurve(x, y, color) {
+		return [x, y, color];
+	}
+
+	circle(point) {
+		//console.log('circle')
+	  	this.ctx.beginPath(); 
+	  	this.ctx.fillStyle = point[2];
+	  	this.ctx.arc(point[0], point[1], this.radius / 2, 0, 2 * Math.PI);
+	  	this.ctx.fill();
+	  	//this.ctx.closePath();
+	}
+
+	addCurve(points) {
+		//console.log('addCurve')
+		if (points) {
+		  this.ctx.beginPath(); 
+		  this.ctx.lineWidth = this.radius;
+		  this.ctx.lineJoin = 'round';
+		  this.ctx.lineCap = 'round';
+		  this.ctx.strokeStyle = points[points.length - 1][2];
+
+		  this.ctx.moveTo(points[0], points[1]);
+
+		  for(let i = 1; i < points.length - 1; i++) {
+		    this.smoothCurveBetween([points[i][0], points[i][1]], [points[i + 1][0], points[i + 1][1]]);
+		  }
+
+		  this.ctx.stroke();  
+		}
+	}
+
+	smoothCurveBetween(point1, point2) {
+		//console.log('smoothCurveBetween')
+		//this.ctx.strokeStyle = 
+		const curvePoint = point1.map((coord, idx) => (coord + point2[idx]) / 2);
+  		this.ctx.quadraticCurveTo(...point1, ...curvePoint);
+  		this.ctx.stroke();
+	}	
+
+	repaint() {
+		//console.log('repaint')
+	  	this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);	  	
+	  	this.curves
+		    .forEach((curve) => {
+		      this.circle(curve[0]);
+		      this.addCurve(curve);
+		    });
+	}
+
+	tick() {
+		//console.log('tick')
+		if(this.needsRepaint) {
+			this.repaint();
+			this.needsRepaint = false;
+		}
+
+		window.requestAnimationFrame(this.tick.bind(this));
+	}
+
+	//создание комментариев
+		//создать новый маркер для комментариев
 	showCommentForm(event) {
 		if (this.wrap.querySelector('.mode.comments').classList.contains('active')
-			&& this.commentsOn.checked) {
+			&& this.commentsOn.checked) {			
 
 			const form = this.engineComments(this.generateCommentForm(event.offsetX, event.offsetY));
 			form.addEventListener('click', this.toggleMarks.bind(this));
-			this.wrap.appendChild(form);
+			this.wrap.appendChild(form);			
 		}		
 	}
 
@@ -650,154 +834,11 @@ class Commenter {
 	}
 }
 
-class Painter {
-	constructor() {
-		this.currentImage = document.querySelector('.current-image');
-		this.wrap = document.querySelector('.wrap.app');
-		this.canvas = document.createElement('canvas');
-		this.ctx = this.canvas.getContext('2d');
-		this.points = [];
-		this.drawing = false;
-		this.needsRepaint = false;
-		this.radius = 4;
-		this.colorBox = {
-			red: '#eb5d56', yellow:'#f4d22f', green: '#6ebf44', blue: '#52a7f7', purple: '#b36ae0'
-		}
-		this.tools = this.wrap.querySelectorAll('.draw-tools input');
-		Array.from(this.tools).forEach(item => {
-			item.addEventListener('click', event => {				
-				this.color = this.colorBox[event.target.value];
-			})
-			if (item.checked) {
-				this.color = this.colorBox[item.value];
-			}
-		});		
-		this.canvas.style = `position: absolute;
-						top: 50%;
-						left: 50%;
-						transform: translate(-50%, -50%);
-						z-index: 1;`;
-
-		this.initEvents();		
-	}
-
-	initEvents() {
-		console.log('beforeInit');
-		this.currentImage.addEventListener('load', () => {			
-			this.initCanvas();
-			this.canvas.addEventListener('mousedown', this.activatePaint.bind(this));
-			this.canvas.addEventListener('mouseup', this.deactivatePaint.bind(this));
-			this.canvas.addEventListener('mouseleave', this.deactivatePaint.bind(this));
-			this.canvas.addEventListener('mousemove', this.draw.bind(this));
-			//this.canvas.addEventListener('DOMContendLoaded', );
-			//this.tick.bind(this);			
-		});		
-
-		//document.addEventListener('mouseup', this.dragOff.bind(this));
-	}
-
-	initCanvas() {
-		this.canvas.width = getComputedStyle(this.currentImage).width.slice(0, -2);
-		this.canvas.height = getComputedStyle(this.currentImage).height.slice(0, -2);
-		if (!this.wrap.querySelector('canvas')){
-			this.wrap.appendChild(this.canvas);
-		}
-	}
-
-	activatePaint(event) {		
-		if (this.wrap.querySelector('.mode.draw').classList.contains('active')) {
-			this.drawing = true;
-			this.needsRepaint = true;
-			this.ctx.moveTo(event.pageX, event.pageY);
-		}
-	}
-
-	deactivatePaint(event) {
-		if (this.wrap.querySelector('.mode.draw').classList.contains('active')) {
-			this.drawing = false;
-			this.needsRepaint = false;
-		}
-	}
-
-	draw(event) {
-		if (this.drawing) {
-			const point = this.pushPoint(event.offsetX, event.offsetY);
-			console.log(point)
-			/*this.ctx.beginPath();
-      		this.ctx.moveTo(x, y);
-		    this.changeWidth(this.isReduce);
-		    this.changeColor(event.shiftKey);
-		    this.ctx.lineTo(x, y);
-		    this.ctx.stroke();*/
-		}
-	}
-
-	pushPoint(x, y) {
-		return [x, y];
-	}
-
-	circle(point) {
-		console.log('circle')
-	  	this.ctx.beginPath(); 
-	  	this.ctx.fillStyle = this.color;
-	  	this.ctx.arc(point[0], point[1], this.radius, 0, 2 * Math.PI);
-	  	this.ctx.fill();
-	  	this.ctx.closePath();
-	}
-
-	addCurve(points1, points2) {
-		console.log('addCurve')
-		if (points2) {
-		  this.ctx.beginPath(); 
-		  this.ctx.lineWidth = points1[3];
-		  this.ctx.lineJoin = 'round';
-		  this.ctx.lineCap = 'round'; 
-		  this.ctx.strokeStyle = `hsl(${points1[2]},100%,50%)`;  	  
-
-		  this.ctx.moveTo(points2[0],points2[1]);
-
-		  this.smoothCurveBetween([points1[0],points1[1]],
-		    					[points2[0],points2[1]]);
-		  this.ctx.stroke();  
-		}
-	}
-
-	smoothCurveBetween(point1, point2) {
-		console.log('smoothCurveBetween')
-		this.ctx.quadraticCurveTo(...point1, ...point2);	
-	}
-
-	repaint() {
-		console.log('repaint')
-	  	this.ctx.clearRect(0, 0, draw.width, draw.height);
-	  	let i = 1;
-	  	this.points
-	    	.forEach((point) => {
-	      	this.circle(point);       	
-	      	if (this.points && this.points.length > 1) {
-	      		this.addCurve(this.points[i-1], this.points[i]);
-	      	}  
-	      	i++;	    	
-	    });
-	}
-
-	tick() {
-		console.log('tick')
-		if(this.needsRepaint) {
-			this.repaint();
-			this.needsRepaint = false;
-		}
-
-		window.requestAnimationFrame(this.tick);
-	}	
-}
-
 const dragger = new DragMenu;
-const commentMaker = new Commenter;
-//const paintMaker = new Painter;
+const maskMaker = new Masker;
 document.addEventListener('DOMContendLoaded', dragger);
 document.addEventListener('DOMContendLoaded', new Switcher);
-document.addEventListener('DOMContendLoaded', commentMaker);
+document.addEventListener('DOMContendLoaded', maskMaker);
 //document.addEventListener('DOMContendLoaded', paintMaker);
 
 //альтернативное получение ссылки на изображение
