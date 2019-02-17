@@ -130,8 +130,7 @@ class Switcher {
 
 		let switcher = ['new', 'comments', 'draw', 'share'];
 		let currentClassList = event.currentTarget.classList;
-		let mask = this.wrap.querySelector('canvas');
-		mask.style.zIndex = 0;
+		
 		//возможность кликнуть по комментариям
 		Array.from(this.wrap.querySelectorAll('.comments__marker-checkbox')).forEach((item) => {
 			item.checked = false;
@@ -147,6 +146,9 @@ class Switcher {
 			inputFile.addEventListener('input', this.uploadImage.bind(this));
 			inputFile.click();
 		} else {
+			let mask = this.wrap.querySelector('canvas');
+			mask.style.zIndex = 0;
+			//console.log(mask)
 
 			switcher.forEach(cls => {
 				if (currentClassList.contains(cls) 
@@ -188,8 +190,7 @@ class Switcher {
 							item.checked = false;
 							item.style.zIndex = 0;
 							item.parentElement.checked = false;
-							item.parentElement.style.zIndex = 0;
-							console.log(item.parentElement)
+							item.parentElement.style.zIndex = 0;							
 						});
 					}					
 					//console.log(cls);
