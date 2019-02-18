@@ -513,7 +513,20 @@ class Masker {
 			this.commentsOff.checked = false;
 
 			this.commentsOn.addEventListener('change', this.toggleComments.bind(this));
-			this.commentsOff.addEventListener('change', this.toggleComments.bind(this));	
+			this.commentsOff.addEventListener('change', this.toggleComments.bind(this));
+
+			//вебсокет
+			this.connection = new WebSocket('wss://neto-api.herokuapp.com/pic/${this.currentImage.dataset.id}');
+			this.connection.addEventListener('open', () => console.log('Соединение установлено'));
+			this.connection.addEventListener('message', message => {
+				console.log('Обновление события вебсокета');
+			});
+			this.connection.addEventListener('error', error => {
+				console.log('Ошибка:', error.data);
+			});
+			this.connection.addEventListener('close', event => {
+				console.log('Соединение закрыто');
+			});
 		});		
 
 		//document.addEventListener('mouseup', this.dragOff.bind(this));
@@ -840,17 +853,3 @@ const maskMaker = new Masker;
 document.addEventListener('DOMContendLoaded', dragger);
 document.addEventListener('DOMContendLoaded', new Switcher);
 document.addEventListener('DOMContendLoaded', maskMaker);
-//document.addEventListener('DOMContendLoaded', paintMaker);
-
-//альтернативное получение ссылки на изображение
-/*fetch(sourse)
-	.then(response => response.blob())
-	.then(blob => new Promise((resolve, reject) => {
-		const reader = new FileReader()
-		reader.addEventListener('loadend', () => resolve(reader.result));
-		reader.addEventListener('error', reject);
-		reader.readAsDataURL(blob)
-	}))
-	.then(dataUrl => {			  	
-		this.sendImage(dataUrl);
-	})*/
