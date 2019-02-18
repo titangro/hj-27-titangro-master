@@ -453,9 +453,6 @@ class Switcher {
 
 	//добавление комментария к  изображению
 	//POST /pic/${id}/comments
-
-	//обновление данных в реальном времени
-	//wss://neto-api.herokuapp.com/pic/${id}
 }
 
 class Masker {
@@ -516,9 +513,14 @@ class Masker {
 			this.commentsOff.addEventListener('change', this.toggleComments.bind(this));
 
 			//вебсокет
-			this.connection = new WebSocket('wss://neto-api.herokuapp.com/pic/${this.currentImage.dataset.id}');
-			this.connection.addEventListener('open', () => console.log('Соединение установлено'));
+			this.connection = new WebSocket(`wss://neto-api.herokuapp.com/pic/${this.currentImage.dataset.id}`);
+			this.connection.addEventListener('open', event => {
+				//console.log(pic);
+				console.log('Соединение установлено');
+			});
 			this.connection.addEventListener('message', message => {
+				let response = JSON.parse(message.data);
+				console.log(response);
 				console.log('Обновление события вебсокета');
 			});
 			this.connection.addEventListener('error', error => {
@@ -695,42 +697,55 @@ class Masker {
 
 	//отправка сообщения на сервер
 	sendComment(message, left, top) {
-		const dataForm = `message=${message}&left=${Math.floor(left)}&top=${Math.floor(top)}`;
-		/*const dataForm = new FormData;
-		dataForm.append('message', message);
-		dataForm.append('left', left);
-		dataForm.append('top', top);*/
-		console.log(dataForm);
-		fetch(`https://neto-api.herokuapp.com/pic/${this.currentImage.dataset.id}/comments`, {
-			data: dataForm,
-			credetials: 'same-origin',
-			method: 'POST',
-			header: {
-				//'Content-Type': 'application/xhtml+xml',
-				//'Content-Type': 'application/x-www-form-urlencoded',
-				//'Content-Type': 'multipart/form-data',
-				//text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
-			}
-		})
-			.then((res) => {
-				console.log(res)
-				if (200 <= res.status && res.status < 300) {
-					return res;
-				}
-				throw new Error(res.statusText);
-			})
-			.then((res) => res.json())
-			.then((data) => {
-				if (data.error) {
-					throw new Error(data.message);
-				} else {
-					console.log(data);
-				}				
-			})
-			.catch((error) => {
-				console.log(error, error.message);
-			});
-		//Новое сообщение		
+		const dataForm = `message=${encodeURIComponent(message)}&left=${encodeURIComponent(Math.floor(left))}&top=${encodeURIComponent(Math.floor(top))}`;
+		let xhr = new XMLHttpRequest();
+		xhr.open("POST", `https://neto-api.herokuapp.com/pic/${this.currentImage.dataset.id}/comments`, true);
+		xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');		
+		//console.log(dataForm);
+		xhr.onreadystatechange = function() {
+		  if (this.readyState != 4) {
+		  	console.log('Ошибка отправки комментария')
+		  	return;
+		  }
+		  //Новое сообщение
+		  let data = JSON.parse(this.responseText);
+		  console.log(data);
+		}
+
+		xhr.send(dataForm);
+	}
+
+	//шаблонизатор нового сообщения
+	generateComment(timestamp, message) {
+		return {
+			tag: 'div',
+			cls: 'comment',
+			childs: [{
+				tag: 'p',
+				cls: 'comment__time',
+				childs: this.showDate(timestamp),
+			},{
+				tag: 'p',
+				cls: 'comment__message',
+				childs: message,
+			}]
+		}
+	}
+
+	showDate(timestamp) {
+		let date = new Date(timestamp);
+		let day = date.getDate();
+		day = +day < 10 ? '0' + day : day;
+		let month = date.getMonth();
+		month = +month < 10 ? '0' + (month + 1) : month;
+		let year = date.getFullYear();
+		let hours = date.getHours();
+		hours = +hours < 10 ? '0' + hours : hours;
+		let minutes = date.getMinutes();
+		minutes = +minutes < 10 ? '0' + minutes : minutes;
+		let seconds = date.getSeconds();
+		seconds = +seconds < 10 ? '0' + seconds : seconds;
+		return day + '.' + month + '.' + year + ' ' + hours + ':' + minutes + ':' + seconds;
 	}
 
 	//шаблонизатор для формы комментариев
@@ -742,8 +757,8 @@ class Masker {
 			cls: 'comments__form',
 			attrs: {
 				style: `z-index: 0;
-						left: ${bound.x + x - 20}px; 
-						top: ${bound.y + y}px; 
+						left: ${Math.floor(bound.x + x - 20)}px; 
+						top: ${Math.floor(bound.y + y)}px; 
 						display: ${visibility}`,
 			},
 			childs: [{
