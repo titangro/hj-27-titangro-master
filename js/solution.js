@@ -178,8 +178,11 @@ class Switcher {
 					}
 
 					//уточнение позиции при переключении
-					let position = JSON.parse(localStorage.position);
-					dragger.changePosition(position.x, position.y);
+					let position
+					if (localStorage.position) {
+						position = JSON.parse(localStorage.position);
+						dragger.changePosition(position.x, position.y);
+					}
 
 					//отображение/отключение canvas при переключение на рисование					
 					mask.style.zIndex = cls === 'draw' ? 1 : 0;
@@ -375,7 +378,7 @@ class Switcher {
 
 	checkReviewing() {
 		//проверка гет параметра
-		const getParams = location.search.replace('?','').split('&').reduce((arr,item) => {
+		const getParams = window.location.search.replace('?','').split('&').reduce((arr,item) => {
 			const elem = item.split('=');
             arr[elem[0]] = elem[1];
             return arr;
@@ -404,11 +407,11 @@ class Switcher {
 	//выключить прелоадер (режим поделиться)
 	turnOffLoader(id, shared = false) {
 		//изменить ссылку на актуальную, добавить ссылку на маску
-		const link = 'file:///F:/gits/hj-27-titangro-master/index.html';
+		const link = 'http://titangro.ru/ui/index.html';
 
 		this.currentImage.addEventListener('load', () => {
 			this.loader.style.display = 'none';
-			this.menu.querySelector('.menu__url').value = link + '?' + id;
+			this.menu.querySelector('.menu__url').value = link + '?id=' + id;
 			this.reviewing();
 
 			//режим поделиться по умолчанию
@@ -450,9 +453,6 @@ class Switcher {
 			}
 		};*/
 	}
-
-	//добавление комментария к  изображению
-	//POST /pic/${id}/comments
 }
 
 class Masker {
@@ -487,7 +487,8 @@ class Masker {
 						transform: translate(-50%, -50%);
 						z-index: 0;`;
 
-		this.initEvents();		
+		this.initEvents();
+		this.clearComments();		
 	}
 
 	initEvents() {
@@ -519,8 +520,26 @@ class Masker {
 				console.log('Соединение установлено');
 			});
 			this.connection.addEventListener('message', message => {
-				let response = JSON.parse(message.data);
-				console.log(response);
+				let res = JSON.parse(message.data);
+				console.log(res);
+				if (res.event === 'pic') {
+					console.log('Получение данных изображения');
+					if (res.pic.comments) {
+						console.log('Комментарии к изображению присутствуют');
+						for(let key in res.pic.comments){
+							const {left, top, message, timestamp} = res.pic.comments[key];
+							this.createForm(left, top, message, timestamp);
+						};
+					}
+				} else if (res.event === 'comment') {
+					console.log('Получено новое сообщение');
+					const {left, top, message, timestamp} = res.comment;
+					this.createForm(left, top, message, timestamp);
+				} else if (res.event === 'mask') {
+					console.log('Обновилась маска изображения')
+				} else if (res.event === 'error') {
+					console.log(`Произошла ошибка ${res.error.message}`)
+				}
 				console.log('Обновление события вебсокета');
 			});
 			this.connection.addEventListener('error', error => {
@@ -642,15 +661,54 @@ class Masker {
 	}
 
 	//создание комментариев
-		//создать новый маркер для комментариев
+
+	//очистка поля для комментариев
+	clearComments() {
+		Array.from(this.wrap.querySelectorAll('.comments__form'))
+			.forEach(node => {
+				if (node.parentNode) {
+			       node.parentNode.removeChild(node);
+			    }
+			});
+	}
+
+	//создать новый маркер для комментариев
 	showCommentForm(event) {
 		if (this.wrap.querySelector('.mode.comments').classList.contains('active')
-			&& this.commentsOn.checked) {			
-
-			const form = this.engineComments(this.generateCommentForm(event.offsetX, event.offsetY));
-			form.addEventListener('click', this.toggleMarks.bind(this));
-			this.wrap.appendChild(form);			
+			&& this.commentsOn.checked) {
+			this.createForm(event.offsetX, event.offsetY);		
 		}		
+	}
+
+	createForm(left, top, message = null, timestamp = null) {
+		const bound = this.currentImage.getBoundingClientRect();		
+		let curForm = null;
+		Array.from(this.wrap.querySelectorAll('.comments__form')).forEach(form => {
+			//console.log(left + Math.floor(bound.left) - 20, form.style.left.slice(0,-2), top + Math.floor(bound.y), form.style.top.slice(0,-2));
+			//console.log(form.style.left.slice(0,-2), form.style.top.slice(0,-2))
+			if (form.style.left.slice(0,-2) == left + Math.floor(bound.x) - 20
+				&& form.style.top.slice(0,-2) == top + Math.floor(bound.y)) {
+				curForm = form;	
+			}
+			form.querySelector('.loader').style.display = 'none';
+		});
+
+		const messageBox = this.engineComments(this.generateComment(timestamp, message));
+		if (!curForm) {
+			const form = this.engineComments(this.generateCommentForm(left, top));
+			form.addEventListener('click', this.toggleMarks.bind(this));
+			this.wrap.appendChild(form);
+			
+			if (message) {
+				form.querySelector('.comment').insertBefore(messageBox, form.querySelector('.comment').firstChild);
+			}
+		} else {
+			if (message) {
+				curForm.querySelector('.comment').insertBefore(messageBox, curForm.querySelector('.comment').firstChild);
+			}
+		}
+		
+		//console.log(left, top, message, timestamp);
 	}
 
 	//скрыть маркеры по кнопке
@@ -663,6 +721,7 @@ class Masker {
 	//изменение уровня видимости у маркеров
 	toggleMarks(event) {
 		//открытие только 1 маркера
+		const bound = this.currentImage.getBoundingClientRect();
 		if (event.target.classList.contains('comments__marker-checkbox')) {
 			//event.target.setAttribute(disabled, "");
 			Array.from(this.wrap.querySelectorAll('.comments__marker-checkbox')).forEach((item) => {
@@ -681,10 +740,13 @@ class Masker {
 		//отправление сообщения на сервер
 		if (event.target.classList.contains('comments__submit')) {
 			event.preventDefault();
+			console.log(event.target.parentElement.querySelector('.loader'));
+			event.target.parentElement.querySelector('.loader').style.display = 'block';
 			const message = event.target.previousSibling.previousSibling.value;
 			if (message != "") {
-				const left = +event.currentTarget.style.left.slice(0, -2),
-					top = +event.currentTarget.style.top.slice(0, -2);
+				const left = +event.currentTarget.style.left.slice(0, -2) - Math.floor(bound.x) + 20,
+					top = +event.currentTarget.style.top.slice(0, -2) - Math.floor(bound.y);
+					console.log(left, top)
 				this.sendComment(message, left, top);
 			}
 		}
@@ -703,8 +765,7 @@ class Masker {
 		xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');		
 		//console.log(dataForm);
 		xhr.onreadystatechange = function() {
-		  if (this.readyState != 4) {
-		  	console.log('Ошибка отправки комментария')
+		  if (this.readyState != 4) {		  	
 		  	return;
 		  }
 		  //Новое сообщение
@@ -751,15 +812,20 @@ class Masker {
 	//шаблонизатор для формы комментариев
 	generateCommentForm(x, y) {
 		const bound = this.currentImage.getBoundingClientRect();
+		//console.log(bound)
 		const visibility = this.commentsOn.checked ? 'block;' : 'none;';
 		return {
 			tag: 'form',
 			cls: 'comments__form',
 			attrs: {
 				style: `z-index: 0;
-						left: ${Math.floor(bound.x + x - 20)}px; 
-						top: ${Math.floor(bound.y + y)}px; 
+						left: ${Math.floor(bound.x) + x - 20}px; 
+						top: ${Math.floor(bound.y) + y}px; 
 						display: ${visibility}`,
+				/*style: `z-index: 0;
+						left: ${Math.floor(x)}px; 
+						top: ${Math.floor(y)}px; 
+						display: ${visibility}`,*/
 			},
 			childs: [{
 				tag: 'span',
