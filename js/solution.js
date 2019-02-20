@@ -469,6 +469,8 @@ class Masker {
 		this.commentsOff;
 		this.commentsOn;
 
+		this.remask = true;
+
 		this.colorBox = {
 			red: '#eb5d56', yellow:'#f4d22f', green: '#6ebf44', blue: '#52a7f7', purple: '#b36ae0'
 		}
@@ -497,6 +499,7 @@ class Masker {
 			this.initCanvas();
 			this.canvas.addEventListener('mousedown', this.activatePaint.bind(this));
 			this.canvas.addEventListener('mouseup', this.deactivatePaint.bind(this));
+			this.canvas.addEventListener('mouseup', this.sendMask.bind(this));			
 			this.canvas.addEventListener('mouseleave', this.deactivatePaint.bind(this));
 			this.canvas.addEventListener('mousemove', this.draw.bind(this));
 			//this.canvas.addEventListener('DOMContendLoaded', );
@@ -525,18 +528,23 @@ class Masker {
 				if (res.event === 'pic') {
 					console.log('Получение данных изображения');
 					if (res.pic.comments) {
-						console.log('Комментарии к изображению присутствуют');
+						console.log('Получение списка комментариев');
 						for(let key in res.pic.comments){
 							const {left, top, message, timestamp} = res.pic.comments[key];
 							this.createForm(left, top, message, timestamp);
 						};
+					}
+					if (res.pic.mask) {
+						console.log('Получение маски');
+						this.addMask(res.pic.mask);
 					}
 				} else if (res.event === 'comment') {
 					console.log('Получено новое сообщение');
 					const {left, top, message, timestamp} = res.comment;
 					this.createForm(left, top, message, timestamp);
 				} else if (res.event === 'mask') {
-					console.log('Обновилась маска изображения')
+					console.log('Обновилась маска изображения');
+					this.addMask(res.url);
 				} else if (res.event === 'error') {
 					console.log(`Произошла ошибка ${res.error.message}`)
 				}
@@ -582,6 +590,7 @@ class Masker {
 			this.drawing = false;
 			//this.needsRepaint = false;
 		}
+		console.log('deactivatePaint');		
 	}
 
 	draw(event) {
@@ -678,7 +687,7 @@ class Masker {
 			&& this.commentsOn.checked) {
 			this.createForm(event.offsetX, event.offsetY);		
 		}		
-	}
+	}	
 
 	createForm(left, top, message = null, timestamp = null) {
 		const bound = this.currentImage.getBoundingClientRect();		
@@ -709,6 +718,26 @@ class Masker {
 		}
 		
 		//console.log(left, top, message, timestamp);
+	}
+
+	addMask(url) {
+		let mask;
+		if (!this.wrap.querySelector('.mask')) {
+			mask = document.createElement('img');
+			mask.classList.add('mask');
+			mask.setAttribute('src', url);
+			mask.style = `position:absolute;
+						top: 50%;
+						left: 50%;
+						transform: translate(-50%, -50%);
+						display: block;
+						box-shadow: 0.1rem 0.17rem 1rem #000000;
+						z-index: 0;`
+			this.wrap.insertBefore(mask ,this.currentImage.nextSibling);
+		} else {
+			mask = this.wrap.querySelector('.mask');
+			mask.setAttribute('src', url);
+		}
 	}
 
 	//скрыть маркеры по кнопке
@@ -756,6 +785,23 @@ class Masker {
 			event.target.focus();
 		}
 	}
+
+	//отправка маски на сервер
+	sendMask() {
+		if (this.curves.length && this.remask) {
+			this.canvas.toBlob(
+				blob => 
+				this.connection.send(blob)
+			);
+			this.curves.length = 0;
+			this.remask = false;
+			let timeout = setTimeout(() => {
+				console.log(this.remask);
+				this.remask = true;
+				clearTimeout(timeout);
+			}, 5000)
+		}		
+	}	
 
 	//отправка сообщения на сервер
 	sendComment(message, left, top) {
@@ -926,6 +972,18 @@ class Masker {
 	    }
 
 	    return element;
+	}
+	throttle(callback, delay) {
+		let isWaiting = false;
+	    return function(){
+	      	if (isWaiting) {
+	      		callback.apply(this, arguments);
+	      		isWaiting = true;
+	      		setTimeout(() => {
+	      			isWaiting = false;
+	      		}, delay);
+	      	}
+	    }
 	}
 }
 
