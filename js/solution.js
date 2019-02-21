@@ -146,9 +146,9 @@ class Switcher {
 			inputFile.addEventListener('input', this.uploadImage.bind(this));
 			inputFile.click();
 		} else {
-			let mask = this.wrap.querySelector('canvas');
-			mask.style.zIndex = 0;
-			//console.log(mask)
+			let canvas = this.wrap.querySelector('canvas');
+			canvas.style.zIndex = 0;
+			//console.log(canvas)
 
 			switcher.forEach(cls => {
 				if (currentClassList.contains(cls) 
@@ -185,7 +185,7 @@ class Switcher {
 					}
 
 					//отображение/отключение canvas при переключение на рисование					
-					mask.style.zIndex = cls === 'draw' ? 1 : 0;
+					canvas.style.zIndex = cls === 'draw' ? 1 : 0;
 					if (cls === 'draw') {
 						maskMaker.tick();
 						//скрыть комментарии под маску для рисования 
@@ -206,7 +206,7 @@ class Switcher {
 		//появление меню после загрузки
 		this.menu.style.display = 'block';
 
-		//console.log('публикация')
+		console.log('публикация')
 
 		//убираем вывод ошибок
 		this.error.style.display = 'none';
@@ -223,6 +223,13 @@ class Switcher {
 		
 		this.currentImage.setAttribute('src', '');
 		localStorage.reviewing = '';
+		if (this.wrap.querySelector('.mask')){
+			this.wrap.querySelector('.mask').setAttribute('src', '');
+		}		
+		maskMaker.clearComments();
+		if (window.location.search) {
+			window.location.search = "";
+		}
 	}
 
 	reviewing() {
@@ -247,14 +254,14 @@ class Switcher {
 			});
 
 		//возможность кликнуть по комментариям
-		let mask = this.wrap.querySelector('canvas');
+		let canvas = this.wrap.querySelector('canvas');
 		Array.from(this.wrap.querySelectorAll('.comments__marker-checkbox')).forEach((item) => {
 			item.checked = false;
 			item.style.zIndex = 1;
 			item.parentElement.checked = false;
 			item.parentElement.style.zIndex = 1;			
 		});
-		mask.style.zIndex = 0;
+		canvas.style.zIndex = 0;
 	}
 
 	uploadImage(event) {
@@ -426,7 +433,8 @@ class Switcher {
 
 	//сохранение ссылки в буфер обмена
 	copyLink() {
-		navigator.clipboard.writeText(this.menu.querySelector('.menu__url').value)
+		let copyLink = this.menu.querySelector('.menu__url').value;		
+		navigator.clipboard.writeText(copyLink)
 		  .then((res) => {
 		    console.log('Ссылка скопирована в буфер обмена');
 		  })
@@ -490,7 +498,7 @@ class Masker {
 						z-index: 0;`;
 
 		this.initEvents();
-		this.clearComments();		
+		this.clearComments();
 	}
 
 	initEvents() {
@@ -709,11 +717,11 @@ class Masker {
 			this.wrap.appendChild(form);
 			
 			if (message) {
-				form.querySelector('.comment').insertBefore(messageBox, form.querySelector('.comment').firstChild);
+				form.querySelector('.comment').insertBefore(messageBox, form.querySelector('.comment').lastChild);
 			}
 		} else {
 			if (message) {
-				curForm.querySelector('.comment').insertBefore(messageBox, curForm.querySelector('.comment').firstChild);
+				curForm.querySelector('.comment').insertBefore(messageBox, curForm.querySelector('.comment').lastChild);
 			}
 		}
 		
@@ -777,6 +785,7 @@ class Masker {
 					top = +event.currentTarget.style.top.slice(0, -2) - Math.floor(bound.y);
 					console.log(left, top)
 				this.sendComment(message, left, top);
+				event.target.previousSibling.previousSibling.value = "";
 			}
 		}
 
