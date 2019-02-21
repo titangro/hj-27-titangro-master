@@ -559,7 +559,7 @@ class Masker {
 				console.log('Обновление события вебсокета');
 			});
 			this.connection.addEventListener('error', error => {
-				console.log('Ошибка:', error.data);
+				console.log('Ошибка:', error);
 			});
 			this.connection.addEventListener('close', event => {
 				console.log('Соединение закрыто');
@@ -597,15 +597,19 @@ class Masker {
 			//console.log('deactivatePaint')
 			this.drawing = false;
 			//this.needsRepaint = false;
-		}
-		console.log('deactivatePaint');		
+		}	
 	}
 
 	draw(event) {
 		if (this.drawing) {
 			//console.log('draw painter')
 			const point = this.pushCurve(event.offsetX, event.offsetY, this.color);
-			this.curves[this.curves.length - 1].push(point);
+			console.log(this.curves.length)
+			if (this.curves.length) {
+				this.curves[this.curves.length - 1].push(point);
+			} else {
+				this.curves.push(point);
+			}
     		this.needsRepaint = true;
 			//this.circle(point);
 			/*this.ctx.beginPath();
@@ -797,18 +801,18 @@ class Masker {
 
 	//отправка маски на сервер
 	sendMask() {
-		if (this.curves.length && this.remask) {
-			this.canvas.toBlob(
-				blob => 
-				this.connection.send(blob)
-			);
-			this.curves.length = 0;
+		if (this.curves.length && this.remask) {			
 			this.remask = false;
 			let timeout = setTimeout(() => {
 				console.log(this.remask);
 				this.remask = true;
+				this.canvas.toBlob(
+					blob => 
+					this.connection.send(blob)
+				);
+				this.curves.length = 0;
 				clearTimeout(timeout);
-			}, 5000)
+			}, 1000)
 		}		
 	}	
 
