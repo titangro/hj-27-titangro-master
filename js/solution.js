@@ -418,7 +418,7 @@ class Switcher {
 
 		this.currentImage.addEventListener('load', () => {
 			this.loader.style.display = 'none';
-			this.menu.querySelector('.menu__url').value = link + '?id=' + id;
+			this.menu.querySelector('.menu__url').setAttribute('value', link + '?id=' + id);
 			this.reviewing();
 
 			//режим поделиться по умолчанию
@@ -433,14 +433,30 @@ class Switcher {
 
 	//сохранение ссылки в буфер обмена
 	copyLink() {
-		let copyLink = this.menu.querySelector('.menu__url').value;		
-		navigator.clipboard.writeText(copyLink)
-		  .then((res) => {
-		    console.log('Ссылка скопирована в буфер обмена');
-		  })
-		  .catch((err) => {
-		    console.log('Ошибка при сохранении ссылки в буфер:', err);
-		  });
+		if (navigator.clipboard) {
+			navigator.clipboard.writeText(document.querySelector('.menu__url').value)
+		  	.then((res) => {
+		    	console.log('Ссылка скопирована в буфер обмена через Navigator');
+		  	})
+		  	.catch((err) => {
+		    	console.log('Ошибка при сохранении ссылки в буфер:', err);
+		  	});
+		} else {
+			const root = document.querySelector('.menu__url');
+			const url = root.value;
+
+			root.focus();
+			root.select();
+
+			try {  
+		    	// Теперь, когда мы выбрали текст ссылки, выполним команду копирования
+		    	const successful = document.execCommand('copy');  
+		    	const msg = successful ? 'успешно' : 'неуспешно';
+		    	console.log('Копирования проведено ' + msg);  
+		  	} catch(err) {  
+		   		console.log('Нет возможности для копирования');  
+		  	}
+		}
 	}
 
 	//вывод свойств изображения
