@@ -54,13 +54,15 @@ class DragMenu {
 			}		
 		}, 0);
 		//добавляем бордер для объекта меню
-		compytedWidthMenu += 2 * getComputedStyle(menu).borderRightWidth.slice(0, -2);
+		compytedWidthMenu += 2 * getComputedStyle(menu).borderRightWidth.slice(0, -2);		
 
 		//ограничение позиции меню
 		x = Math.max(x, body.offsetLeft);
 		y = Math.max(y, body.offsetTop);
 		x = Math.min(x, document.documentElement.clientWidth - compytedWidthMenu);
-		y = Math.min(y, document.documentElement.clientHeight);
+		y = Math.min(y, document.documentElement.clientHeight - menu.clientHeight);
+
+		//console.log(y)
 
 		menu.style.setProperty('--menu-left', x + 'px');
 		menu.style.setProperty('--menu-top', y + 'px');
@@ -523,7 +525,8 @@ class Masker {
 			this.initCanvas();
 			this.canvas.addEventListener('mousedown', this.activatePaint.bind(this));
 			this.canvas.addEventListener('mouseup', this.deactivatePaint.bind(this));
-			this.canvas.addEventListener('mouseup', this.sendMask.bind(this));			
+			this.canvas.addEventListener('mouseup', this.sendMask.bind(this));
+			this.canvas.addEventListener('mousedown', this.sendMask.bind(this));			
 			this.canvas.addEventListener('mouseleave', this.deactivatePaint.bind(this));
 			this.canvas.addEventListener('mousemove', this.draw.bind(this));
 			//this.canvas.addEventListener('DOMContendLoaded', );
@@ -569,6 +572,7 @@ class Masker {
 				} else if (res.event === 'mask') {
 					console.log('Обновилась маска изображения');
 					this.addMask(res.url);
+					this.sendMask();
 				} else if (res.event === 'error') {
 					console.log(`Произошла ошибка ${res.error.message}`)
 				}
@@ -619,8 +623,7 @@ class Masker {
 	draw(event) {
 		if (this.drawing) {
 			//console.log('draw painter')
-			const point = this.pushCurve(event.offsetX, event.offsetY, this.color);
-			console.log(this.curves.length)
+			const point = this.pushCurve(event.offsetX, event.offsetY, this.color);			
 			if (this.curves.length) {
 				this.curves[this.curves.length - 1].push(point);
 			} else {
@@ -817,6 +820,8 @@ class Masker {
 
 	//отправка маски на сервер
 	sendMask() {
+		//if (event.type == 'mouseup') this.remask = true;
+		console.log(1)
 		if (this.curves.length && this.remask) {			
 			this.remask = false;
 			let timeout = setTimeout(() => {
@@ -827,8 +832,8 @@ class Masker {
 					this.connection.send(blob)
 				);
 				this.curves.length = 0;
-				clearTimeout(timeout);
-			}, 1000)
+				clearTimeout(timeout);					
+ 			}, 1000)
 		}		
 	}	
 
